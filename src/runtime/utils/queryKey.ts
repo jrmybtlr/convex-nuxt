@@ -4,6 +4,9 @@ import { convexToJson } from 'convex/values'
 
 /**
  * Stable Nuxt payload / useAsyncData key for a Convex query.
+ *
+ * `'skip'` means "don't fetch" — it must not change the key, otherwise
+ * auth-gated queries lose the SSR payload on the client.
  */
 export function convexQueryKey(
   query: FunctionReference<'query'>,
@@ -15,10 +18,7 @@ export function convexQueryKey(
   }
 
   const name = getFunctionName(query)
-  if (args === 'skip') {
-    return `convex:${name}:skip`
-  }
-
-  const argsJson = convexToJson((args ?? {}) as never)
+  const keyArgs = args === 'skip' ? {} : (args ?? {})
+  const argsJson = convexToJson(keyArgs as never)
   return `convex:${name}:${JSON.stringify(argsJson)}`
 }

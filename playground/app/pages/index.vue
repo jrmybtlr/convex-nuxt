@@ -7,8 +7,11 @@ const url = computed(
   () => (config.public.convex as { url?: string } | undefined)?.url,
 )
 
-const { isAuthenticated, isLoading } = useConvexAuth()
-const jwtCookie = useCookie('convex_jwt')
+const { isAuthenticated, isLoading } = useAuth()
+const cookieName = (
+  config.public.convex as { auth?: { cookie?: string } } | undefined
+)?.auth?.cookie ?? 'convex_jwt'
+const jwtCookie = useCookie(cookieName)
 const showTasks = computed(
   () => isAuthenticated.value || !!jwtCookie.value,
 )
@@ -27,8 +30,7 @@ const showTasks = computed(
       style="padding: 1rem; background: #fff8e1; border-radius: 8px"
     >
       Set <code>NUXT_PUBLIC_CONVEX_URL</code> by running
-      <code>pnpm run dev:backend</code> (from
-      <code>playground/</code>: <code>npx convex dev</code>), then restart
+      <code>pnpm run dev:backend</code>, then restart
       <code>pnpm run dev</code>.
     </p>
 

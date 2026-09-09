@@ -1,9 +1,20 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi, beforeEach } from 'vitest'
 import { makeFunctionReference } from 'convex/server'
 import { convexQueryKey } from '../src/runtime/utils/queryKey'
 import { resolveQueryOverlay } from '../src/runtime/utils/overlay'
 import { createHttpClient } from '../src/runtime/utils/http'
 import { resolveConvexAuthState } from '../src/runtime/utils/authState'
+import { resolveFetchToken } from '../src/runtime/utils/fetchToken'
+import {
+  flattenSignInParams,
+  resolveAuthCookieName,
+  shouldConsumeOAuthCode,
+  storageKey,
+} from '../src/runtime/utils/authStorage'
+import {
+  resetAuthMutexesForTests,
+  withRefreshMutex,
+} from '../src/runtime/utils/authMutex'
 
 const listTasks = makeFunctionReference<'query', Record<string, never>, Array<{ text: string }>>(
   'tasks:list',
@@ -31,8 +42,9 @@ describe('convexQueryKey', () => {
     expect(convexQueryKey(listTasks, {}, 'tasks:list')).toBe('tasks:list')
   })
 
-  it('uses a dedicated skip suffix', () => {
-    expect(convexQueryKey(listTasks, 'skip')).toBe('convex:tasks:list:skip')
+  it('keeps the same key for skip as for empty args (SSR payload reuse)', () => {
+    expect(convexQueryKey(listTasks, 'skip')).toBe(convexQueryKey(listTasks, {}))
+    expect(convexQueryKey(listTasks, 'skip')).toBe('convex:tasks:list:{}')
   })
 })
 
@@ -241,5 +253,119 @@ describe('ssrToken fallback', () => {
     const ssrToken = 'from-cookie'
     const token = optionsToken ?? ssrToken
     expect(token).toBe('from-cookie')
+  })
+})
+
+describe('resolveFetchToken', () => {
+  it('prefers an explicit token over the cookie', () => {
+    expect(
+      resolveFetchToken({
+        token: 'explicit',
+        cookieName: 'convex_jwt',
+        cookieValue: 'from-cookie',
+      }),
+    ).toBe('explicit')
+  })
+
+  it('falls back to the cookie value when token is omitted', () => {
+    expect(
+      resolveFetchToken({
+        cookieName: 'convex_jwt',
+        cookieValue: 'from-cookie',
+      }),
+    ).toBe('from-cookie')
+  })
+
+  it('treats an empty explicit token as undefined', () => {
+    expect(resolveFetchToken({ token: '' })).toBeUndefined()
+  })
+})
+
+describe('convex.server default', () => {
+  it('defaults useConvexQuery server option from module config', () => {
+    const resolveServer = (
+      optionsServer: boolean | undefined,
+      moduleServer: boolean | undefined,
+    ) => optionsServer ?? moduleServer ?? true
+
+    expect(resolveServer(undefined, true)).toBe(true)
+    expect(resolveServer(undefined, false)).toBe(false)
+    expect(resolveServer(true, false)).toBe(true)
+    expect(resolveServer(false, true)).toBe(false)
+  })
+})
+
+describe('authStorage helpers', () => {
+  it('namespaces storage keys by deployment URL', () => {
+    expect(storageKey('__convexAuthJWT', 'https://happy-animal-123.convex.cloud'))
+      .toBe('__convexAuthJWT_httpshappyanimal123convexcloud')
+  })
+
+  it('flattens FormData like the React Convex Auth client', () => {
+    const form = new FormData()
+    form.set('email', 'a@b.co')
+    form.set('password', 'secret')
+    form.set('flow', 'signIn')
+    expect(flattenSignInParams(form)).toEqual({
+      email: 'a@b.co',
+      password: 'secret',
+      flow: 'signIn',
+    })
+  })
+
+  it('passes through plain records', () => {
+    expect(flattenSignInParams({ email: 'a@b.co' })).toEqual({ email: 'a@b.co' })
+    expect(flattenSignInParams()).toEqual({})
+  })
+
+  it('defaults cookie to convex_jwt when provider is convex-auth', () => {
+    expect(resolveAuthCookieName({ provider: 'convex-auth' })).toBe('convex_jwt')
+    expect(resolveAuthCookieName({ provider: 'convex-auth', cookie: 'custom' }))
+      .toBe('custom')
+    expect(resolveAuthCookieName({ cookie: 'only-cookie' })).toBe('only-cookie')
+    expect(resolveAuthCookieName(undefined)).toBeUndefined()
+    expect(resolveAuthCookieName({})).toBeUndefined()
+  })
+
+  it('only consumes ?code= when a verifier is stored', () => {
+    expect(shouldConsumeOAuthCode({ code: 'abc', verifier: 'v' })).toBe(true)
+    expect(shouldConsumeOAuthCode({ code: 'abc', verifier: null })).toBe(false)
+    expect(shouldConsumeOAuthCode({ code: null, verifier: 'v' })).toBe(false)
+  })
+})
+
+describe('withRefreshMutex', () => {
+  beforeEach(() => {
+    resetAuthMutexesForTests()
+  })
+
+  it('runs a single refresh at a time (manual mutex fallback)', async () => {
+    const order: string[] = []
+    let releaseFirst!: () => void
+    const firstGate = new Promise<void>((resolve) => {
+      releaseFirst = resolve
+    })
+
+    const first = withRefreshMutex('test-refresh', async () => {
+      order.push('first-start')
+      await firstGate
+      order.push('first-end')
+      return 'a'
+    })
+
+    // Let the first callback start before enqueueing the second.
+    await Promise.resolve()
+    await Promise.resolve()
+
+    const second = withRefreshMutex('test-refresh', async () => {
+      order.push('second')
+      return 'b'
+    })
+
+    expect(order).toEqual(['first-start'])
+    releaseFirst()
+    await expect(first).resolves.toBe('a')
+    await expect(second).resolves.toBe('b')
+    expect(order).toEqual(['first-start', 'first-end', 'second'])
   })
 })

@@ -1,9 +1,5 @@
 <script setup lang="ts">
-const {
-  error,
-  pending,
-  signInWithPassword,
-} = usePlaygroundAuth()
+const { error, pending, signIn } = useAuth()
 
 const email = ref('')
 const password = ref('')
@@ -11,11 +7,11 @@ const mode = ref<'signIn' | 'signUp'>('signIn')
 
 async function submit() {
   try {
-    await signInWithPassword(
-      email.value.trim(),
-      password.value,
-      mode.value,
-    )
+    await signIn('password', {
+      email: email.value.trim(),
+      password: password.value,
+      flow: mode.value,
+    })
   }
   catch {
     // error surfaced via `error`

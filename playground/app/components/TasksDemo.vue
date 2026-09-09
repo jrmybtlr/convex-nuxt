@@ -1,9 +1,8 @@
 <script setup lang="ts">
-import type { Id } from '../../convex/_generated/dataModel'
-import { api } from '../../convex/_generated/api'
+import type { Id } from '~~/convex/_generated/dataModel'
+import { api } from '~~/convex/_generated/api'
 
-const { isAuthenticated, isLoading } = useConvexAuth()
-const { pending: authPending, signOut } = usePlaygroundAuth()
+const { isAuthenticated, isLoading, pending: authPending, signOut } = useAuth()
 
 const queryArgs = computed(() => {
   // Subscribe only after Convex confirms auth. While loading / signed out,
@@ -18,7 +17,6 @@ const queryArgs = computed(() => {
 const { data, pending, error, refresh } = await useConvexQuery(
   api.tasks.list,
   queryArgs,
-  { key: 'tasks:list' },
 )
 
 const { mutate: createTask, pending: creating } = useConvexMutation(

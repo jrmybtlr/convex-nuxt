@@ -1,46 +1,19 @@
-# Auth helper + local Convex todo demo
+# Optional first-party Convex Auth
 
 ## Plan
 
-- [x] Provider-agnostic `useConvexAuth` + token refresh (`onRefreshChange`)
-- [x] Optional SSR JWT cookie (`convex.auth.cookie` → `ctx.ssrToken`)
-- [x] Real Convex playground backend (Password auth + per-user tasks)
-- [x] Playground auth adapter + todo UI
-- [x] Unit tests + docs
-
-## Local verify
-
-```bash
-pnpm install
-pnpm test
-pnpm run build
-
-# Terminal 1 — creates .env.local with NUXT_PUBLIC_CONVEX_URL
-pnpm run dev:backend
-# first time in playground/:
-#   npx @convex-dev/auth
-
-# Terminal 2
-pnpm run dev
-```
-
-Sign up → add/toggle/delete todos → refresh (SSR via cookie) → sign out.
+- [x] Extend ModuleAuthOptions with provider + default cookie; gate plugin and auto-imports
+- [x] Port playground useAuth into module runtime (signIn/signOut, storage, cookie, refresh mutex, OAuth)
+- [x] Add plugin.auth.client.ts that hydrates, finishes OAuth, and wires useConvexAuth
+- [x] Switch playground to provider: convex-auth; delete app-owned useAuth + auth plugin
+- [x] Unit tests for adapter helpers; README Convex Auth vs BYO; roadmap
 
 ## Review
 
-### Done
-
-- `useConvexAuth` mirrors React ConvexAuthState (`isLoading` / `isAuthenticated` / `isRefreshing`)
-- Browser wires `BaseConvexClient.setAuth` with refresh callback
-- Optional `convex.auth.cookie` for SSR HttpClient auth
-- Playground: `@convex-dev/auth` Password + per-user `tasks` API
-- Playground UI: AuthForm + gated TasksDemo (skip when signed out)
-- Tests: auth state machine + `convex-test` for tasks (21 passing)
-- README updated; roadmap checks auth + playground backend
-
-### Notes
-
-- Convex Dashboard API was unreachable from the agent environment, so
-  `playground/convex/_generated` stubs are committed for offline typecheck/tests.
-  Run `npx convex dev` locally to link a deployment and regenerate them.
-- Pagination / DevTools / live CI integration tests remain deferred.
+- Opt-in `convex.auth.provider: 'convex-auth'` registers `plugin.auth.client` and auto-imports `useAuth` / `signIn` / `signOut`.
+- Cookie defaults to `convex_jwt` when the provider is set; BYO path unchanged.
+- Client talks to `auth:signIn` / `auth:signOut` via `makeFunctionReference` (no `@convex-dev/auth` runtime dep).
+- OAuth: store verifier on redirect; consume `?code=` only when a verifier exists.
+- Playground no longer owns auth adapter/plugin — forms call module APIs only.
+- Auth plugin / `useAuth` no-op gracefully when Convex URL is unset (avoids HMR 500s).
+- Verified: SSR HTML includes Sign-in form + `auth.provider: "convex-auth"`; unit tests + typecheck + module build pass.

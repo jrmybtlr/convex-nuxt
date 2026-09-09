@@ -1,10 +1,13 @@
+import { defineNuxtConfig } from 'nuxt/config'
+
 export default defineNuxtConfig({
   compatibilityDate: '2026-01-01',
-  modules: ['../src/module'],
+  modules: ['@convex/nuxt'],
   convex: {
     url: process.env.NUXT_PUBLIC_CONVEX_URL,
     auth: {
-      // Playground mirrors the JWT into this cookie after sign-in for SSR.
+      // First-party Convex Auth: module owns plugin + useAuth / signIn / signOut.
+      provider: 'convex-auth',
       cookie: 'convex_jwt',
     },
   },

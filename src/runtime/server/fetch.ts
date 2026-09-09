@@ -3,8 +3,14 @@ import type {
   FunctionReference,
   FunctionReturnType,
 } from 'convex/server'
-import { useRuntimeConfig } from 'nuxt/app'
+import type { H3Event } from 'h3'
+import { getCookie } from 'h3'
+import { useRuntimeConfig } from 'nitropack/runtime'
 import { createHttpClient } from '../utils/http'
+import { resolveAuthCookieName } from '../utils/authStorage'
+import { resolveFetchToken } from '../utils/fetchToken'
+
+export { resolveFetchToken }
 
 export interface ConvexFetchOptions {
   /**
@@ -13,9 +19,29 @@ export interface ConvexFetchOptions {
   url?: string
   /**
    * JWT for this call. Prefer per-request tokens — never put JWTs in public config.
+   * When omitted and `event` is passed, falls back to `convex.auth.cookie` if set.
    */
   token?: string
+  /**
+   * Nitro/H3 event. Used to resolve runtimeConfig and the optional auth cookie.
+   */
+  event?: H3Event
   skipConvexDeploymentUrlCheck?: boolean
+}
+
+interface ConvexPublicConfig {
+  url?: string
+  auth?: { provider?: string, cookie?: string }
+}
+
+function readConvexConfig(event?: H3Event): ConvexPublicConfig | undefined {
+  try {
+    const config = useRuntimeConfig(event)
+    return config.public?.convex as ConvexPublicConfig | undefined
+  }
+  catch {
+    return undefined
+  }
 }
 
 function resolveUrl(options: ConvexFetchOptions): string {
@@ -23,15 +49,9 @@ function resolveUrl(options: ConvexFetchOptions): string {
     return options.url
   }
 
-  try {
-    const config = useRuntimeConfig()
-    const url = (config.public.convex as { url?: string } | undefined)?.url
-    if (url) {
-      return url
-    }
-  }
-  catch {
-    // Outside Nuxt context — fall through to env.
+  const fromConfig = readConvexConfig(options.event)?.url
+  if (fromConfig) {
+    return fromConfig
   }
 
   const fromEnv = process.env.NUXT_PUBLIC_CONVEX_URL
@@ -44,15 +64,38 @@ function resolveUrl(options: ConvexFetchOptions): string {
   )
 }
 
+function resolveToken(options: ConvexFetchOptions): string | undefined {
+  if (options.token !== undefined) {
+    return resolveFetchToken({ token: options.token })
+  }
+
+  const cookieName = resolveAuthCookieName(readConvexConfig(options.event)?.auth)
+  if (!cookieName || !options.event) {
+    return undefined
+  }
+
+  return resolveFetchToken({
+    cookieName,
+    cookieValue: getCookie(options.event, cookieName),
+  })
+}
+
 function setupClient(options: ConvexFetchOptions = {}) {
   return createHttpClient(resolveUrl(options), {
-    token: options.token,
+    token: resolveToken(options),
     skipConvexDeploymentUrlCheck: options.skipConvexDeploymentUrlCheck,
   })
 }
 
 /**
  * One-shot query via ConvexHttpClient. Use in Nitro routes / server middleware.
+ *
+ * @example
+ * ```ts
+ * export default defineEventHandler(async (event) => {
+ *   return await fetchQuery(api.tasks.list, {}, { event })
+ * })
+ * ```
  */
 export async function fetchQuery<Query extends FunctionReference<'query'>>(
   query: Query,

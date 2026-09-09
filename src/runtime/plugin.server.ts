@@ -1,5 +1,6 @@
 import { defineNuxtPlugin, useCookie, useRuntimeConfig } from 'nuxt/app'
 import { createHttpClient } from './utils/http'
+import { resolveAuthCookieName } from './utils/authStorage'
 import {
   convexNuxtKey,
   createAuthContext,
@@ -7,11 +8,11 @@ import {
 } from './utils/context'
 
 export default defineNuxtPlugin({
-  name: 'convex-nuxt',
+  name: 'convex-nuxt-server',
   setup(nuxtApp) {
     const config = useRuntimeConfig()
     const convexConfig = config.public.convex as
-      | { url?: string, auth?: { cookie?: string } }
+      | { url?: string, auth?: { provider?: string, cookie?: string } }
       | undefined
     const url = convexConfig?.url
 
@@ -25,7 +26,7 @@ export default defineNuxtPlugin({
     }
 
     let ssrToken: string | undefined
-    const cookieName = convexConfig?.auth?.cookie
+    const cookieName = resolveAuthCookieName(convexConfig?.auth)
     if (cookieName) {
       ssrToken = useCookie(cookieName).value || undefined
     }

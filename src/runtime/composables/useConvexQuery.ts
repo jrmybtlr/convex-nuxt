@@ -4,7 +4,7 @@ import type {
   FunctionReturnType,
 } from 'convex/server'
 import { convexToJson, jsonToConvex } from 'convex/values'
-import { useAsyncData } from 'nuxt/app'
+import { useAsyncData, useRuntimeConfig } from 'nuxt/app'
 import {
   computed,
   onScopeDispose,
@@ -27,12 +27,13 @@ export interface UseConvexQueryOptions {
   /**
    * Explicit Nuxt payload/cache key.
    * Defaults to `convex:<functionName>:<argsJSON>`.
+   * `'skip'` does not change the key (same slot as empty args).
    */
   key?: string
 
   /**
-   * Execute the query during SSR and transfer its result through the Nuxt payload.
-   * @default true
+   * Run the HttpClient snapshot during SSR and transfer it through the Nuxt payload.
+   * Defaults to `convex.server` from module config (`true`).
    */
   server?: boolean
 
@@ -59,7 +60,7 @@ export interface UseConvexQueryReturn<T> {
   data: Ref<T | null | undefined> | ComputedRef<T | null | undefined>
   error: Ref<Error | null | undefined> | ComputedRef<Error | null | undefined>
   pending: Ref<boolean> | ComputedRef<boolean>
-  status: Ref<string> | ComputedRef<string>
+  status: Ref<'pending' | 'success' | 'error' | string> | ComputedRef<'pending' | 'success' | 'error' | string>
   refresh: () => Promise<void>
 }
 
@@ -75,7 +76,11 @@ export async function useConvexQuery<Query extends FunctionReference<'query'>>(
   args: MaybeRefOrGetter<ConvexQueryArgs<Query>> = {} as ConvexQueryArgs<Query>,
   options: UseConvexQueryOptions = {},
 ): Promise<UseConvexQueryReturn<FunctionReturnType<Query>>> {
-  const server = options.server ?? true
+  const runtimeConfig = useRuntimeConfig()
+  const defaultServer = (
+    runtimeConfig.public.convex as { server?: boolean } | undefined
+  )?.server
+  const server = options.server ?? defaultServer ?? true
   const live = options.live ?? true
   const ctx = useConvexContext()
 
