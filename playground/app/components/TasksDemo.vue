@@ -66,8 +66,8 @@ async function onRemove(taskId: Id<'tasks'>) {
 
 <template>
   <div>
-    <div style="display: flex; justify-content: space-between; align-items: center; gap: 1rem; margin: 1rem 0">
-      <p style="margin: 0; color: #555">
+    <div class="mt-6 flex items-center justify-between gap-4">
+      <p class="text-sm text-zinc-500">
         <span v-if="isLoading && !showAuthedUi">Checking session…</span>
         <span v-else-if="isAuthenticated">Signed in — your tasks sync live.</span>
         <span v-else-if="showAuthedUi">Restoring session…</span>
@@ -76,6 +76,7 @@ async function onRemove(taskId: Id<'tasks'>) {
       <button
         v-if="showAuthedUi"
         type="button"
+        class="rounded-md border border-zinc-200 px-3 py-1.5 text-sm disabled:opacity-50"
         :disabled="authPending"
         @click="signOut()"
       >
@@ -86,23 +87,25 @@ async function onRemove(taskId: Id<'tasks'>) {
     <!-- showAuthedUi keeps SSR HTML mounted while Convex confirms -->
     <template v-if="showAuthedUi">
       <form
-        style="display: flex; gap: 0.5rem; margin: 1.5rem 0"
+        class="mt-6 flex flex-wrap gap-2"
         @submit.prevent="addTask"
       >
         <input
           v-model="draft"
           placeholder="New task"
-          style="flex: 1; padding: 0.5rem"
+          class="min-w-0 flex-1 rounded-md border border-zinc-200 px-3 py-1.5 text-sm outline-none focus:border-zinc-400 disabled:opacity-50"
           :disabled="!isAuthenticated || busy"
         >
         <button
           type="submit"
+          class="rounded-md border border-zinc-200 px-3 py-1.5 text-sm disabled:opacity-50"
           :disabled="!isAuthenticated || busy"
         >
           {{ creating ? 'Adding…' : 'Add' }}
         </button>
         <button
           type="button"
+          class="rounded-md border border-zinc-200 px-3 py-1.5 text-sm disabled:opacity-50"
           :disabled="!isAuthenticated"
           @click="refresh()"
         >
@@ -110,21 +113,27 @@ async function onRemove(taskId: Id<'tasks'>) {
         </button>
       </form>
 
-      <p v-if="pending">
+      <p
+        v-if="pending"
+        class="mt-4 text-sm text-zinc-400"
+      >
         Loading…
       </p>
-      <p v-else-if="error">
+      <p
+        v-else-if="error"
+        class="mt-4 text-sm text-red-700"
+      >
         {{ error.message }}
       </p>
 
       <ul
         v-else
-        style="list-style: none; padding: 0; margin: 0"
+        class="mt-4"
       >
         <li
           v-for="task in data ?? []"
           :key="task._id"
-          style="display: flex; align-items: center; gap: 0.75rem; padding: 0.5rem 0; border-bottom: 1px solid #eee"
+          class="flex items-center gap-3 border-b border-zinc-100 py-2 text-sm last:border-0"
         >
           <input
             type="checkbox"
@@ -132,11 +141,15 @@ async function onRemove(taskId: Id<'tasks'>) {
             :disabled="!isAuthenticated || busy"
             @change="onToggle(task._id)"
           >
-          <span :style="{ textDecoration: task.completed ? 'line-through' : 'none', flex: 1 }">
+          <span
+            class="flex-1"
+            :class="{ 'text-zinc-400 line-through': task.completed }"
+          >
             {{ task.text }}
           </span>
           <button
             type="button"
+            class="text-zinc-400 hover:text-zinc-900 disabled:opacity-50"
             :disabled="!isAuthenticated || busy"
             @click="onRemove(task._id)"
           >

@@ -106,70 +106,75 @@ await loadHealth()
 </script>
 
 <template>
-  <main style="font-family: system-ui; max-width: 720px; margin: 5rem auto; padding: 0 1rem">
-    <h1>Server routes</h1>
-    <p style="color: #555">
+  <main class="py-10">
+    <h1 class="text-xl font-medium tracking-tight">
+      Server routes
+    </h1>
+    <p class="mt-3 text-sm leading-relaxed text-zinc-500">
       These calls go through Nitro
       <code>fetchQuery</code> / <code>fetchMutation</code> /
       <code>fetchAction</code>
       (fresh HttpClient per request) with
       <code>requireConvexAuth(event)</code> on protected routes. They are
       <strong>one-shot</strong> — not live. For SSR snapshot + WebSocket overlay,
-      use the <NuxtLink to="/">Live</NuxtLink> page.
+      use the <NuxtLink to="/" class="underline decoration-zinc-300 underline-offset-2 hover:text-zinc-800">Live</NuxtLink> page.
     </p>
 
-    <section style="margin: 2rem 0; padding: 1rem; border: 1px solid #eee; border-radius: 8px">
-      <h2 style="margin-top: 0; font-size: 1.1rem">
+    <section class="mt-8 rounded-lg border border-zinc-200 p-4">
+      <h2 class="text-sm font-medium">
         GET /api/health
       </h2>
-      <p style="color: #555; font-size: 0.9rem">
+      <p class="mt-1 text-sm text-zinc-500">
         Public query — no cookie. Try
         <code>curl localhost:3000/api/health</code>.
       </p>
       <button
         type="button"
+        class="mt-3 rounded-md border border-zinc-200 px-3 py-1.5 text-sm disabled:opacity-50"
         @click="loadHealth()"
       >
         Refresh
       </button>
       <pre
         v-if="health"
-        style="margin-top: 0.75rem; background: #f6f8fa; padding: 0.75rem; border-radius: 6px"
+        class="mt-3 overflow-x-auto rounded-md bg-zinc-50 p-3 text-xs"
       >{{ health }}</pre>
       <p
         v-if="healthError"
-        style="color: #b00020"
+        class="mt-2 text-sm text-red-700"
       >
         {{ healthError }}
       </p>
     </section>
 
-    <section style="margin: 2rem 0; padding: 1rem; border: 1px solid #eee; border-radius: 8px">
-      <h2 style="margin-top: 0; font-size: 1.1rem">
+    <section class="mt-6 rounded-lg border border-zinc-200 p-4">
+      <h2 class="text-sm font-medium">
         GET/POST /api/tasks
       </h2>
-      <p style="color: #555; font-size: 0.9rem">
+      <p class="mt-1 text-sm text-zinc-500">
         Authenticated via the Convex auth cookie
         (<code>{ event }</code> + <code>requireConvexAuth</code>). Sign in on Live first.
       </p>
 
       <form
-        style="display: flex; gap: 0.5rem; margin: 1rem 0"
+        class="mt-4 flex flex-wrap gap-2"
         @submit.prevent="createTask"
       >
         <input
           v-model="draft"
           placeholder="New task via Nitro"
-          style="flex: 1; padding: 0.5rem"
+          class="min-w-0 flex-1 rounded-md border border-zinc-200 px-3 py-1.5 text-sm outline-none focus:border-zinc-400"
         >
         <button
           type="submit"
+          class="rounded-md border border-zinc-200 px-3 py-1.5 text-sm disabled:opacity-50"
           :disabled="creating"
         >
           {{ creating ? 'Adding…' : 'POST create' }}
         </button>
         <button
           type="button"
+          class="rounded-md border border-zinc-200 px-3 py-1.5 text-sm disabled:opacity-50"
           :disabled="tasksPending"
           @click="loadTasks()"
         >
@@ -179,51 +184,51 @@ await loadHealth()
 
       <p
         v-if="tasksError"
-        style="color: #b00020"
+        class="mt-2 text-sm text-red-700"
       >
         {{ tasksError }}
       </p>
 
       <ul
         v-if="tasks"
-        style="list-style: none; padding: 0; margin: 0"
+        class="mt-3"
       >
         <li
           v-for="task in tasks"
           :key="task._id"
-          style="padding: 0.4rem 0; border-bottom: 1px solid #eee"
+          class="border-b border-zinc-100 py-2 text-sm last:border-0"
+          :class="{ 'text-zinc-400 line-through': task.completed }"
         >
-          <span :style="{ textDecoration: task.completed ? 'line-through' : 'none' }">
-            {{ task.text }}
-          </span>
+          {{ task.text }}
         </li>
       </ul>
       <p
         v-else-if="!tasksError && !tasksPending"
-        style="color: #888"
+        class="mt-3 text-sm text-zinc-400"
       >
         Click “GET list” after signing in.
       </p>
     </section>
 
-    <section style="margin: 2rem 0; padding: 1rem; border: 1px solid #eee; border-radius: 8px">
-      <h2 style="margin-top: 0; font-size: 1.1rem">
+    <section class="mt-6 mb-8 rounded-lg border border-zinc-200 p-4">
+      <h2 class="text-sm font-medium">
         POST /api/shout
       </h2>
-      <p style="color: #555; font-size: 0.9rem">
+      <p class="mt-1 text-sm text-zinc-500">
         Public <code>fetchAction</code> demo — no cookie required.
       </p>
       <form
-        style="display: flex; gap: 0.5rem; margin: 1rem 0"
+        class="mt-4 flex flex-wrap gap-2"
         @submit.prevent="runShout"
       >
         <input
           v-model="shoutDraft"
           placeholder="Text to shout"
-          style="flex: 1; padding: 0.5rem"
+          class="min-w-0 flex-1 rounded-md border border-zinc-200 px-3 py-1.5 text-sm outline-none focus:border-zinc-400"
         >
         <button
           type="submit"
+          class="rounded-md border border-zinc-200 px-3 py-1.5 text-sm disabled:opacity-50"
           :disabled="shouting"
         >
           {{ shouting ? '…' : 'POST shout' }}
@@ -231,7 +236,7 @@ await loadHealth()
       </form>
       <pre
         v-if="shoutResult"
-        style="margin-top: 0.75rem; background: #f6f8fa; padding: 0.75rem; border-radius: 6px"
+        class="mt-3 overflow-x-auto rounded-md bg-zinc-50 p-3 text-xs"
       >{{ shoutResult }}</pre>
     </section>
   </main>

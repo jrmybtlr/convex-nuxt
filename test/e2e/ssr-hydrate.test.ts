@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 const enabled = process.env.E2E_CONVEX === '1'
-const baseURL = process.env.E2E_BASE_URL ?? 'http://127.0.0.1:3000'
+const baseURL = process.env.E2E_BASE_URL ?? 'http://localhost:3000'
 
 describe.skipIf(!enabled)('ssr hydrate (live deployment)', () => {
   it('serves the Live page without crashing', async () => {

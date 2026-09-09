@@ -30,6 +30,7 @@
     "typecheck": "vue-tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:e2e": "E2E_CONVEX=1 vitest run playground/e2e test/e2e",
     "release": "semantic-release"
   },
   "peerDependencies": {

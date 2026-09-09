@@ -35,70 +35,82 @@ const connection = useConvexConnectionState()
 </script>
 
 <template>
-  <main style="font-family: system-ui; max-width: 720px; margin: 3rem auto; padding: 0 1rem">
-    <h1>Extras</h1>
-    <p style="color: #555">
+  <main class="py-10">
+    <h1 class="text-xl font-medium tracking-tight">
+      Extras
+    </h1>
+    <p class="mt-3 text-sm leading-relaxed text-zinc-500">
       Demos for <code>live: false</code>, <code>useConvexPaginatedQuery</code>,
       <code>useConvexAction</code>, and <code>useConvexConnectionState</code>.
-      Sign in on <NuxtLink to="/">Live</NuxtLink> first.
+      Sign in on <NuxtLink to="/" class="underline decoration-zinc-300 underline-offset-2 hover:text-zinc-800">Live</NuxtLink> first.
     </p>
 
     <p
       v-if="!showAuthedUi"
-      style="color: #888"
+      class="mt-6 text-sm text-zinc-400"
     >
       Not signed in.
     </p>
 
     <template v-else>
-      <section style="margin: 1.5rem 0; padding: 1rem; border: 1px solid #eee; border-radius: 8px">
-        <h2 style="margin-top: 0; font-size: 1.05rem">
+      <section class="mt-8 rounded-lg border border-zinc-200 p-4">
+        <h2 class="text-sm font-medium">
           Connection
         </h2>
-        <pre style="margin: 0; background: #f6f8fa; padding: 0.75rem; border-radius: 6px; font-size: 0.85rem">{{ connection }}</pre>
+        <pre class="mt-3 overflow-x-auto rounded-md bg-zinc-50 p-3 text-xs">{{ connection }}</pre>
       </section>
 
-      <section style="margin: 1.5rem 0; padding: 1rem; border: 1px solid #eee; border-radius: 8px">
-        <h2 style="margin-top: 0; font-size: 1.05rem">
+      <section class="mt-6 rounded-lg border border-zinc-200 p-4">
+        <h2 class="text-sm font-medium">
           live: false snapshot
         </h2>
         <button
           type="button"
+          class="mt-3 rounded-md border border-zinc-200 px-3 py-1.5 text-sm disabled:opacity-50"
           :disabled="!isAuthenticated"
           @click="refresh()"
         >
           Refresh HttpClient
         </button>
-        <p v-if="snapshotPending">
+        <p
+          v-if="snapshotPending"
+          class="mt-3 text-sm text-zinc-400"
+        >
           Loading…
         </p>
-        <ul v-else>
+        <ul
+          v-else
+          class="mt-3 text-sm"
+        >
           <li
             v-for="task in snapshot ?? []"
             :key="task._id"
+            class="border-b border-zinc-100 py-2 last:border-0"
           >
             {{ task.text }}
           </li>
         </ul>
       </section>
 
-      <section style="margin: 1.5rem 0; padding: 1rem; border: 1px solid #eee; border-radius: 8px">
-        <h2 style="margin-top: 0; font-size: 1.05rem">
+      <section class="mt-6 rounded-lg border border-zinc-200 p-4">
+        <h2 class="text-sm font-medium">
           Paginated list
         </h2>
-        <p style="color: #555; font-size: 0.9rem">
+        <p class="mt-1 text-sm text-zinc-500">
           Status: {{ status }} · {{ results.length }} items
         </p>
-        <ul>
+        <ul class="mt-3 text-sm">
           <li
             v-for="task in results"
             :key="task._id"
+            class="border-b border-zinc-100 py-2 last:border-0"
           >
             {{ task.text }}
           </li>
         </ul>
         <button
           type="button"
+          class="mt-3 rounded-md border border-zinc-200 px-3 py-1.5 text-sm disabled:opacity-50"
           :disabled="status !== 'CanLoadMore' || isLoading"
           @click="loadMore()"
         >
@@ -106,20 +118,21 @@ const connection = useConvexConnectionState()
         </button>
       </section>
 
-      <section style="margin: 1.5rem 0; padding: 1rem; border: 1px solid #eee; border-radius: 8px">
-        <h2 style="margin-top: 0; font-size: 1.05rem">
+      <section class="mt-6 mb-8 rounded-lg border border-zinc-200 p-4">
+        <h2 class="text-sm font-medium">
           useConvexAction
         </h2>
         <form
-          style="display: flex; gap: 0.5rem"
+          class="mt-4 flex flex-wrap gap-2"
           @submit.prevent="runShout"
         >
           <input
             v-model="shoutInput"
-            style="flex: 1; padding: 0.5rem"
+            class="min-w-0 flex-1 rounded-md border border-zinc-200 px-3 py-1.5 text-sm outline-none focus:border-zinc-400"
           >
           <button
             type="submit"
+            class="rounded-md border border-zinc-200 px-3 py-1.5 text-sm disabled:opacity-50"
             :disabled="shouting"
           >
             {{ shouting ? 'Running…' : 'Shout' }}
@@ -127,7 +140,7 @@ const connection = useConvexConnectionState()
         </form>
         <p
           v-if="shoutResult"
-          style="margin-top: 0.75rem"
+          class="mt-3 text-sm"
         >
           {{ shoutResult }}
         </p>

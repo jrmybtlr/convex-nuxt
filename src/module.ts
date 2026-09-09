@@ -1,9 +1,10 @@
 import {
-  addComponentsDir,
+  addComponent,
   addImports,
   addPlugin,
   addServerHandler,
   addServerImports,
+  addServerScanDir,
   addTypeTemplate,
   createResolver,
   defineNuxtModule,
@@ -143,7 +144,22 @@ export default defineNuxtModule<ModuleOptions>({
     })
 
     const resolver = createResolver(import.meta.url)
+    const runtimeDir = resolver.resolve('./runtime')
     const useConvexAuthProvider = auth?.provider === 'convex-auth'
+
+    // Ensure Nitro can resolve module runtime handlers / imports.
+    nuxt.options.build.transpile.push(runtimeDir)
+    ;(nuxt.hooks as {
+      hook: (name: string, fn: (nitroConfig: {
+        externals?: { inline?: string[] | unknown }
+      }) => void) => void
+    }).hook('nitro:config', (nitroConfig) => {
+      nitroConfig.externals ||= {}
+      nitroConfig.externals.inline ||= []
+      if (Array.isArray(nitroConfig.externals.inline)) {
+        nitroConfig.externals.inline.push(runtimeDir)
+      }
+    })
 
     addPlugin({
       src: resolver.resolve('./runtime/plugin.server'),
@@ -168,10 +184,28 @@ export default defineNuxtModule<ModuleOptions>({
       })
     }
 
-    addComponentsDir({
-      path: resolver.resolve('./runtime/components'),
-      pathPrefix: false,
+    for (const name of ['Authenticated', 'Unauthenticated', 'AuthLoading'] as const) {
+      addComponent({
+        name,
+        filePath: resolver.resolve(`./runtime/components/${name}.vue`),
+      })
+    }
+
+    // Scan api/ + routes/ like a normal Nuxt server/ dir.
+    addServerScanDir(resolver.resolve('./runtime/server'))
+
+    // Also register explicitly — some Nuxt/Nitro versions drop scanned
+    // handlers from published module packages during HMR.
+    addServerHandler({
+      route: '/api/convex/auth/session',
+      handler: resolver.resolve('./runtime/server/api/convex/auth/session'),
     })
+    if (nuxt.options.dev) {
+      addServerHandler({
+        route: '/__convex_devtools',
+        handler: resolver.resolve('./runtime/server/routes/__convex_devtools.get'),
+      })
+    }
 
     addImports([
       {
@@ -247,19 +281,7 @@ export default defineNuxtModule<ModuleOptions>({
       },
     ])
 
-    // Always register — handler 404s when httpOnly is off. Registering only
-    // when enabled forces a full Nuxt restart to pick up the route after toggling.
-    addServerHandler({
-      route: '/api/convex/auth/session',
-      handler: resolver.resolve('./runtime/server/routes/session'),
-    })
-
     if (nuxt.options.dev) {
-      addServerHandler({
-        route: '/__convex_devtools',
-        handler: resolver.resolve('./runtime/server/routes/devtools'),
-      })
-
       // DevTools hook is optional — typed loosely so builds work without
       // @nuxt/devtools as a hard dependency.
       ;(nuxt.hooks as { hook: (name: string, fn: (tabs: Array<Record<string, unknown>>) => void) => void })

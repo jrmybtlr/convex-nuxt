@@ -1,31 +1,20 @@
-# Ranked improvements for @convex/nuxt
+# Playground Tailwind via Vite
 
 ## Plan
 
-- [x] P0.1 Auth hydration: `showAuthedUi`, matching SSR/client first paint, fix TasksDemo
-- [x] P0.2 Reactive `useAsyncData` keys (+ skip key stability tests)
-- [x] P0.3 Watch `ssrToken` / `options.token` on HttpClient path
-- [x] P1 Nitro `requireConvexAuth` / `getConvexToken`
-- [x] P1 Auth layout helpers (`Authenticated` / `Unauthenticated` / `AuthLoading`)
-- [x] P1 Optimistic updates on `useConvexMutation`
-- [x] P1 Playground demos (action, live:false, auth gate)
-- [x] P2 `useConvexPaginatedQuery`
-- [x] P2 HttpOnly dual-cookie auth via Nitro
-- [x] P2 Connection state + DevTools + real-deployment e2e scaffold
+- [x] Install `tailwindcss` + `@tailwindcss/vite` in playground
+- [x] Register the Vite plugin and global CSS in `nuxt.config.ts`
+- [x] Add `app/assets/css/main.css` with `@import "tailwindcss"`
+- [x] Restyle `app.vue` as a minimal layout shell
+- [x] Replace inline styles on playground pages/components with simple utilities
+- [x] Verify in the browser (nav + Live / Server / Extras)
 
 ## Review
 
-### Done
+Tailwind v4 is wired through `@tailwindcss/vite` in `playground/nuxt.config.ts` (no PostCSS / Nuxt Tailwind module). The app shell is a centered `max-w-xl` column with muted nav and zinc borders. Inline styles on Live, Server, Extras, AuthForm, and TasksDemo were replaced with the same small utility set.
 
-- **Hydration:** `showAuthedUi` on `useConvexAuth` / `useAuth`; server still stamps `isAuthenticated` for SSR queryArgs; client does not (avoids hydrate mismatch). Playground uses `<Authenticated>` / `showAuthedUi`; live queries still gate on `isAuthenticated`.
-- **Keys / token watch:** `useConvexQuery` passes a computed key into `useAsyncData` and watches `ssrToken` / `options.token`.
-- **Nitro:** `requireConvexAuth` / `getConvexToken`; playground tasks routes use them; `/api/shout` demos `fetchAction`.
-- **DX:** `Authenticated` / `Unauthenticated` / `AuthLoading`, `useConvexGate`, `optimisticUpdate` on mutations, `useConvexPaginatedQuery`, `useConvexConnectionState`, DevTools iframe tab + `window.__CONVEX_NUXT__`.
-- **HttpOnly:** `auth.httpOnly: true` → Nitro `/api/convex/auth/session`, HttpOnly JWT/refresh + readable presence cookie. Playground opts in.
-- **E2E scaffold:** `test/e2e/` skipped unless `E2E_CONVEX=1`.
-
-### Verify
-
-- `pnpm test` — 66 passed, 3 skipped
-- `pnpm typecheck` / `pnpm build` — green
-- Live browser against playground not run in this session (needs `pnpm run dev` + `dev:backend`)
+Verified at `http://localhost:3000/`:
+- Live: sign-in / create-account toggle
+- Server: health JSON, GET list error, shout form
+- Extras: unsigned-in empty state
+- Computed styles confirm Tailwind (`flex` nav, `max-w-xl` = 576px, `text-xl` = 20px)

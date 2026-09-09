@@ -9,13 +9,15 @@
     "convex:codegen": "convex codegen"
   },
   "dependencies": {
-    "@auth/core": "0.41.1",
-    "@convex/nuxt": "workspace:*",
+    "@auth/core": "0.41.3",
     "@convex-dev/auth": "^0.0.95",
+    "@convex/nuxt": "workspace:*",
     "convex": "^1.45.0",
     "convex-helpers": "^0.1.124"
   },
   "devDependencies": {
-    "convex-test": "^0.0.56"
+    "@tailwindcss/vite": "^4.3.3",
+    "convex-test": "^0.0.56",
+    "tailwindcss": "^4.3.3"
   }
 }

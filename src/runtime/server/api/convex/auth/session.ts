@@ -11,8 +11,8 @@ import {
   readHttpOnlyJwt,
   readHttpOnlyRefresh,
   setAuthCookies,
-} from '../authCookies'
-import { isHttpOnlyAuth, type ConvexAuthConfig } from '../../utils/authStorage'
+} from '../../../authCookies'
+import { isHttpOnlyAuth, type ConvexAuthConfig } from '../../../../utils/authStorage'
 
 type AuthTokens = { token: string, refreshToken: string }
 
@@ -33,7 +33,7 @@ function convexUrl(event: Parameters<typeof useRuntimeConfig>[0]): string {
   if (!url) {
     throw createError({
       statusCode: 500,
-      statusMessage: 'Convex URL is not configured',
+      message: 'Convex URL is not configured',
     })
   }
   return url
@@ -46,7 +46,7 @@ function requireHttpOnly(event: Parameters<typeof useRuntimeConfig>[0]) {
   if (!isHttpOnlyAuth(auth)) {
     throw createError({
       statusCode: 404,
-      statusMessage: 'HttpOnly auth is not enabled',
+      message: 'HttpOnly auth is not enabled',
     })
   }
 }
@@ -56,14 +56,14 @@ function assertSameOrigin(event: Parameters<typeof getRequestHeader>[0]) {
   if (secFetchSite && secFetchSite !== 'same-origin' && secFetchSite !== 'none') {
     throw createError({
       statusCode: 403,
-      statusMessage: 'Forbidden',
+      message: 'Forbidden',
     })
   }
 }
 
 /**
- * Persist tokens into HttpOnly cookies (called after client signIn).
- * Body: `{ token, refreshToken } | null` to clear.
+ * Persist / read / refresh HttpOnly auth cookies.
+ * GET → { hasSession, token }, POST → set or refresh, DELETE → clear.
  */
 export default defineEventHandler(async (event) => {
   requireHttpOnly(event)
@@ -73,7 +73,6 @@ export default defineEventHandler(async (event) => {
     const token = readHttpOnlyJwt(event)
     return {
       hasSession: !!token,
-      // Token only for same-origin fetchToken — never embed in HTML.
       token: token ?? null,
     }
   }
@@ -128,5 +127,5 @@ export default defineEventHandler(async (event) => {
     return { ok: true }
   }
 
-  throw createError({ statusCode: 405, statusMessage: 'Method not allowed' })
+  throw createError({ statusCode: 405, message: 'Method not allowed' })
 })

@@ -9,9 +9,11 @@ const url = computed(
 </script>
 
 <template>
-  <main style="font-family: system-ui; max-width: 720px; margin: 5rem auto; padding: 0 1rem">
-    <h1>Convex + Nuxt SSR</h1>
-    <p style="color: #555">
+  <main class="py-10">
+    <h1 class="text-xl font-medium tracking-tight">
+      Convex + Nuxt SSR
+    </h1>
+    <p class="mt-3 text-sm leading-relaxed text-zinc-500">
       HTML is rendered from an HttpClient snapshot (JWT cookie when signed in).
       After hydration the live subscription takes over without a loading flash.
       Auth shell uses <code>showAuthedUi</code> /
@@ -20,7 +22,7 @@ const url = computed(
 
     <p
       v-if="!url"
-      style="padding: 1rem; background: #fff8e1; border-radius: 8px"
+      class="mt-6 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900"
     >
       Set <code>NUXT_PUBLIC_CONVEX_URL</code> by running
       <code>pnpm run dev:backend</code>, then restart
@@ -29,7 +31,7 @@ const url = computed(
 
     <template v-else>
       <AuthLoading>
-        <p style="color: #555">
+        <p class="mt-6 text-sm text-zinc-500">
           Resolving auth…
         </p>
       </AuthLoading>

@@ -1,0 +1,7 @@
+@import "tailwindcss";
+
+@layer base {
+  code {
+    @apply rounded bg-zinc-100 px-1 py-px font-mono text-[0.85em];
+  }
+}

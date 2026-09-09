@@ -10,6 +10,7 @@ export default defineConfig({
           include: [
             'test/**/*.test.ts',
             'playground/convex/**/*.test.ts',
+            'playground/e2e/**/*.test.ts',
           ],
           exclude: ['test/**/*.nuxt.test.ts'],
         },

@@ -20,44 +20,45 @@ async function submit() {
 </script>
 
 <template>
-  <section style="margin: 1.5rem 0; padding: 1.25rem; border: 1px solid #ddd; border-radius: 8px">
-    <h2 style="margin: 0 0 0.75rem; font-size: 1.1rem">
+  <section class="mt-8 rounded-lg border border-zinc-200 p-4">
+    <h2 class="text-sm font-medium">
       {{ mode === 'signIn' ? 'Sign in' : 'Create account' }}
     </h2>
     <form
-      style="display: grid; gap: 0.75rem"
+      class="mt-4 grid gap-3"
       @submit.prevent="submit"
     >
-      <label style="display: grid; gap: 0.25rem">
-        <span>Email</span>
+      <label class="grid gap-1 text-sm">
+        <span class="text-zinc-500">Email</span>
         <input
           v-model="email"
           type="email"
           required
           autocomplete="email"
-          style="padding: 0.5rem"
+          class="rounded-md border border-zinc-200 px-3 py-1.5 text-sm outline-none focus:border-zinc-400"
         >
       </label>
-      <label style="display: grid; gap: 0.25rem">
-        <span>Password</span>
+      <label class="grid gap-1 text-sm">
+        <span class="text-zinc-500">Password</span>
         <input
           v-model="password"
           type="password"
           required
           minlength="8"
           autocomplete="current-password"
-          style="padding: 0.5rem"
+          class="rounded-md border border-zinc-200 px-3 py-1.5 text-sm outline-none focus:border-zinc-400"
         >
       </label>
       <p
         v-if="error"
-        style="color: #b00020; margin: 0"
+        class="text-sm text-red-700"
       >
         {{ error }}
       </p>
-      <div style="display: flex; gap: 0.5rem; flex-wrap: wrap">
+      <div class="flex flex-wrap gap-2">
         <button
           type="submit"
+          class="rounded-md border border-zinc-200 px-3 py-1.5 text-sm disabled:opacity-50"
           :disabled="pending"
         >
           {{
@@ -70,6 +71,7 @@ async function submit() {
         </button>
         <button
           type="button"
+          class="rounded-md px-3 py-1.5 text-sm text-zinc-500 hover:text-zinc-900"
           @click="mode = mode === 'signIn' ? 'signUp' : 'signIn'"
         >
           {{ mode === 'signIn' ? 'Need an account?' : 'Have an account?' }}
