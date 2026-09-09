@@ -256,9 +256,56 @@ pnpm run dev
 - [x] First-party Convex Auth (`provider: 'convex-auth'` + `useAuth` / `signIn` / `signOut`)
 - [x] Real Convex playground backend + task tests
 - [x] Event-aware Nitro helpers + playground server examples
+- [x] Release automation
 - [ ] Reactive arg identity edge cases beyond `watch`
 - [ ] Pagination
 - [ ] Integration tests against a real Convex deployment
 - [ ] Nuxt DevTools
-- [ ] Release automation
 - [ ] HttpOnly dual-cookie SSR (Next.js parity)
+
+## Releasing
+
+Releases run automatically via GitHub Actions when commits land on `main` (workflow: `.github/workflows/release.yml`).
+
+Version bumps come from [conventional commits](https://www.conventionalcommits.org/):
+
+| Commit type | Release |
+|---|---|
+| `fix: ...` | patch |
+| `feat: ...` | minor |
+| `feat!: ...` or `BREAKING CHANGE:` footer | major |
+| `chore:`, `docs:`, `ci:`, etc. | no release |
+
+When there is a releasable commit, semantic-release:
+
+1. Publishes `@convex/nuxt` to npm
+2. Creates a `vX.Y.Z` git tag
+3. Opens a GitHub Release with generated notes
+
+`package.json` version in the repo is not committed back; the published tarball still carries the real version.
+
+### First release
+
+With no existing git tags, the first release is **1.0.0**. To stay on 0.x, tag the current commit before the first run:
+
+```bash
+git tag v0.0.2
+git push origin v0.0.2
+```
+
+### npm trusted publishing (one-time)
+
+Prefer [npm trusted publishers](https://docs.npmjs.com/trusted-publishers) (OIDC) so you do not need a long-lived `NPM_TOKEN`:
+
+1. On npm (package or `@convex` org), add a GitHub Actions trusted publisher
+2. Repository: `jrmybtlr/convex-nuxt`
+3. Workflow filename: `release.yml`
+4. Environment: leave empty
+
+If trusted publishing is not available yet, add a repository secret `NPM_TOKEN` (automation token with publish rights to `@convex`) and pass it into the release step:
+
+```yaml
+env:
+  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+```

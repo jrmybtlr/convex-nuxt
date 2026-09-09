@@ -1,15 +1,15 @@
-# Expose hasSsrSession from the auth plugins
+# npm publish on merge to main
 
 ## Plan
 
-- [x] Shared `useAuthJwtCookie` / `useSsrTokenRef` helper (same cookie options everywhere)
-- [x] Plugins store a reactive `ssrToken` ref; server still seeds UI auth from it
-- [x] `useConvexAuth` / `useAuth` expose `hasSsrSession`; persistTokens writes via the helper
-- [x] Playground Live page drops cookie-name / `useCookie` plumbing
-- [x] Tests, README, typecheck
+- [x] Add `.github/workflows/release.yml` (verify then semantic-release, pnpm, OIDC permissions)
+- [x] Add `release.config.js`, pin `semantic-release`, set `publishConfig.access: public`
+- [x] Document conventional commits, first-release versioning, and npm trusted publisher setup
 
 ## Review
 
-- Pages no longer resolve `convex.auth.cookie`. Gate the signed-in shell with `isAuthenticated || hasSsrSession`; keep live queries on `isAuthenticated`.
-- Both plugins share `useSsrTokenRef()` so HttpClient refreshes see cookie updates after sign-in.
-- Verified: unit tests + typecheck pass; signed-in SSR HTML includes the task shell (not AuthForm); Live + Server routes still work with the JWT cookie.
+- Workflow runs on `push` to `main` and `workflow_dispatch`: verify (`test` / `typecheck` / `build`) then release.
+- Release job uses `id-token: write` for npm trusted publishing; optional `NPM_TOKEN` secret as fallback.
+- semantic-release plugins: commit-analyzer, release-notes-generator, npm, github (no `@semantic-release/git`).
+- Repository URL set to `jrmybtlr/convex-nuxt`; README Releasing section + roadmap item checked.
+- Local `semantic-release --dry-run` loads config; auth failures expected without CI tokens.

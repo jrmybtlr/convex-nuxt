@@ -6,7 +6,10 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/your-org/convex-nuxt.git"
+    "url": "https://github.com/jrmybtlr/convex-nuxt.git"
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "exports": {
     ".": {
@@ -26,7 +29,8 @@
     "build:playground": "nuxi build playground",
     "typecheck": "vue-tsc --noEmit",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "release": "semantic-release"
   },
   "peerDependencies": {
     "convex": "^1.21.0",
@@ -50,6 +54,7 @@
     "convex-test": "^0.0.56",
     "nitropack": "^2.13.0",
     "nuxt": "^4.5.2",
+    "semantic-release": "^25.0.9",
     "typescript": "^5.9.0",
     "vitest": "^3.2.0",
     "vue": "^3.5.0",
