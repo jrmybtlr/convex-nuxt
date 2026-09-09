@@ -1,6 +1,8 @@
 import {
+  addComponentsDir,
   addImports,
   addPlugin,
+  addServerHandler,
   addServerImports,
   addTypeTemplate,
   createResolver,
@@ -30,10 +32,24 @@ export interface ModuleAuthOptions {
    * `hasSsrSession`.
    * Nitro `fetch*` helpers also read this cookie when `{ event }` is passed.
    *
-   * Defaults to `'convex_jwt'` when `provider === 'convex-auth'`.
+   * Defaults to `'convex_jwt'` when `provider === 'convex-auth'` and
+   * `httpOnly` is off. With `httpOnly: true`, defaults to `__convexAuthJWT`.
    * Otherwise off — BYO apps must opt in and write the JWT after sign-in.
    */
   cookie?: string
+  /**
+   * Store JWT + refresh tokens in HttpOnly cookies via Nitro
+   * (`/api/convex/auth/session`). Next.js Convex Auth parity — tokens are
+   * not readable from JS. A readable presence cookie drives `hasSsrSession`.
+   *
+   * @default false
+   */
+  httpOnly?: boolean
+  /**
+   * Readable presence cookie when `httpOnly` is enabled.
+   * @default 'convex_auth_present'
+   */
+  presentCookie?: string
 }
 
 export interface ModuleOptions {
@@ -80,8 +96,19 @@ export type {
   UseConvexAuthReturn,
   AuthTokenFetcher,
 } from './runtime/composables/useConvexAuth'
+export type {
+  UseConvexMutationOptions,
+} from './runtime/composables/useConvexMutation'
+export type {
+  PaginatedQueryReference,
+  UseConvexPaginatedQueryOptions,
+  UseConvexPaginatedQueryReturn,
+  PaginationStatus,
+} from './runtime/composables/useConvexPaginatedQuery'
 export type { ConvexFetchOptions } from './runtime/server/fetch'
 export type { ConvexNuxtContext, ConvexAuthContext } from './runtime/utils/context'
+export type { ConnectionState } from './runtime/composables/useConvexConnectionState'
+export type { ConvexGate } from './runtime/composables/useConvexGate'
 
 export default defineNuxtModule<ModuleOptions>({
   meta: {
@@ -134,6 +161,18 @@ export default defineNuxtModule<ModuleOptions>({
       })
     }
 
+    if (nuxt.options.dev) {
+      addPlugin({
+        src: resolver.resolve('./runtime/plugin.devtools.client'),
+        mode: 'client',
+      })
+    }
+
+    addComponentsDir({
+      path: resolver.resolve('./runtime/components'),
+      pathPrefix: false,
+    })
+
     addImports([
       {
         name: 'useConvex',
@@ -144,8 +183,16 @@ export default defineNuxtModule<ModuleOptions>({
         from: resolver.resolve('./runtime/composables/useConvexAuth'),
       },
       {
+        name: 'useConvexGate',
+        from: resolver.resolve('./runtime/composables/useConvexGate'),
+      },
+      {
         name: 'useConvexQuery',
         from: resolver.resolve('./runtime/composables/useConvexQuery'),
+      },
+      {
+        name: 'useConvexPaginatedQuery',
+        from: resolver.resolve('./runtime/composables/useConvexPaginatedQuery'),
       },
       {
         name: 'useConvexMutation',
@@ -154,6 +201,10 @@ export default defineNuxtModule<ModuleOptions>({
       {
         name: 'useConvexAction',
         from: resolver.resolve('./runtime/composables/useConvexAction'),
+      },
+      {
+        name: 'useConvexConnectionState',
+        from: resolver.resolve('./runtime/composables/useConvexConnectionState'),
       },
       ...(useConvexAuthProvider
         ? [
@@ -186,7 +237,44 @@ export default defineNuxtModule<ModuleOptions>({
         name: 'fetchAction',
         from: resolver.resolve('./runtime/server/fetch'),
       },
+      {
+        name: 'getConvexToken',
+        from: resolver.resolve('./runtime/server/auth'),
+      },
+      {
+        name: 'requireConvexAuth',
+        from: resolver.resolve('./runtime/server/auth'),
+      },
     ])
+
+    // Always register — handler 404s when httpOnly is off. Registering only
+    // when enabled forces a full Nuxt restart to pick up the route after toggling.
+    addServerHandler({
+      route: '/api/convex/auth/session',
+      handler: resolver.resolve('./runtime/server/routes/session'),
+    })
+
+    if (nuxt.options.dev) {
+      addServerHandler({
+        route: '/__convex_devtools',
+        handler: resolver.resolve('./runtime/server/routes/devtools'),
+      })
+
+      // DevTools hook is optional — typed loosely so builds work without
+      // @nuxt/devtools as a hard dependency.
+      ;(nuxt.hooks as { hook: (name: string, fn: (tabs: Array<Record<string, unknown>>) => void) => void })
+        .hook('devtools:customTabs', (tabs) => {
+          tabs.push({
+            name: 'convex-nuxt',
+            title: 'Convex',
+            icon: 'carbon:data-base',
+            view: {
+              type: 'iframe',
+              src: '/__convex_devtools',
+            },
+          })
+        })
+    }
 
     const contextTypes = resolver.resolve('./runtime/utils/context')
     addTypeTemplate({
@@ -202,6 +290,8 @@ declare module '@nuxt/schema' {
       auth?: {
         provider?: 'convex-auth'
         cookie?: string
+        httpOnly?: boolean
+        presentCookie?: string
       }
     }
   }

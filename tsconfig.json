@@ -12,5 +12,6 @@
     "types": ["node"],
     "lib": ["ESNext", "DOM"]
   },
-  "include": ["src", "test"]
+  "include": ["src", "test"],
+  "exclude": ["test/fixtures"]
 }

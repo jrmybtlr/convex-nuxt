@@ -87,7 +87,11 @@ export async function useConvexQuery<Query extends FunctionReference<'query'>>(
   const resolveArgs = (): ConvexQueryArgs<Query> =>
     toValue(args) as ConvexQueryArgs<Query>
 
-  const key = convexQueryKey(query, resolveArgs(), options.key)
+  // Reactive key so parameterized queries get distinct payload slots.
+  // `'skip'` still shares the empty-args key (auth-gated SSR reuse).
+  const key = computed(() =>
+    convexQueryKey(query, resolveArgs(), options.key),
+  )
 
   const asyncData = await useAsyncData<FunctionReturnType<Query> | null>(
     key,
@@ -109,7 +113,12 @@ export async function useConvexQuery<Query extends FunctionReference<'query'>>(
     {
       server,
       lazy: options.lazy ?? false,
-      watch: [() => toValue(args)],
+      watch: [
+        () => toValue(args),
+        // Re-run HttpClient snapshot when the SSR JWT cookie / token changes
+        // (e.g. after sign-in with live:false, or Refresh).
+        () => options.token ?? ctx.ssrToken.value,
+      ],
     },
   )
 

@@ -27,8 +27,11 @@ export default defineNuxtPlugin({
 
     const ssrToken = useSsrTokenRef()
     const auth = createAuthContext()
-    // Opt-in cookie means this request can run authenticated SSR queries.
-    // Mark the UI as authenticated so pages don't flash the signed-out gate.
+    // Cookie present → SSR can run authenticated HttpClient queries and
+    // `showAuthedUi` / `hasSsrSession` keep the shell mounted. Stamp
+    // `isAuthenticated` only for this server request so `queryArgs` gated on
+    // `isAuthenticated` still fetch during SSR; the client plugin does **not**
+    // copy this — it waits for Convex confirmation (shell uses `showAuthedUi`).
     if (ssrToken.value) {
       auth.providerAuthenticated.value = true
       auth.isConvexAuthenticated.value = true

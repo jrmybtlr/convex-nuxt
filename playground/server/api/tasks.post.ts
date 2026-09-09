@@ -3,11 +3,9 @@ import { api } from '~~/convex/_generated/api'
 /**
  * One-shot create via Nitro `fetchMutation`.
  * Same cookie auth as GET /api/tasks.
- *
- * `fetchAction` works the same way when you have an action to call:
- * `await fetchAction(api.myAction, args, { event })`
  */
 export default defineEventHandler(async (event) => {
+  requireConvexAuth(event)
   const body = await readBody<{ text?: string }>(event)
   const text = body?.text?.trim()
   if (!text) {
@@ -26,7 +24,7 @@ export default defineEventHandler(async (event) => {
     if (/auth|unauthor|not authenticated/i.test(message)) {
       throw createError({
         statusCode: 401,
-        statusMessage: 'Sign in on the Live page so the convex_jwt cookie is set.',
+        statusMessage: 'Sign in on the Live page so the auth cookie is set.',
       })
     }
     throw cause

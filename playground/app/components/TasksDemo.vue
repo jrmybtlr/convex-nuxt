@@ -2,8 +2,17 @@
 import type { Id } from '~~/convex/_generated/dataModel'
 import { api } from '~~/convex/_generated/api'
 
-const { isAuthenticated, isLoading, pending: authPending, signOut } = useAuth()
+const {
+  isAuthenticated,
+  isLoading,
+  showAuthedUi,
+  pending: authPending,
+  signOut,
+} = useAuth()
 
+// Live subscribe only after Convex confirms. SSR stamps isAuthenticated from
+// the cookie so the HttpClient snapshot still runs; client uses 'skip' until
+// setAuth confirms while the overlay keeps the payload visible.
 const queryArgs = computed(() => {
   if (isAuthenticated.value) {
     return {}
@@ -33,7 +42,7 @@ const busy = computed(
 
 async function addTask() {
   const text = draft.value.trim()
-  if (!text) {
+  if (!text || !isAuthenticated.value) {
     return
   }
   await createTask({ text })
@@ -41,10 +50,16 @@ async function addTask() {
 }
 
 async function onToggle(taskId: Id<'tasks'>) {
+  if (!isAuthenticated.value) {
+    return
+  }
   await toggleTask({ taskId })
 }
 
 async function onRemove(taskId: Id<'tasks'>) {
+  if (!isAuthenticated.value) {
+    return
+  }
   await removeTask({ taskId })
 }
 </script>
@@ -53,12 +68,13 @@ async function onRemove(taskId: Id<'tasks'>) {
   <div>
     <div style="display: flex; justify-content: space-between; align-items: center; gap: 1rem; margin: 1rem 0">
       <p style="margin: 0; color: #555">
-        <span v-if="isLoading">Checking session…</span>
+        <span v-if="isLoading && !showAuthedUi">Checking session…</span>
         <span v-else-if="isAuthenticated">Signed in — your tasks sync live.</span>
+        <span v-else-if="showAuthedUi">Restoring session…</span>
         <span v-else>Sign in to manage tasks.</span>
       </p>
       <button
-        v-if="isAuthenticated"
+        v-if="showAuthedUi"
         type="button"
         :disabled="authPending"
         @click="signOut()"
@@ -67,7 +83,8 @@ async function onRemove(taskId: Id<'tasks'>) {
       </button>
     </div>
 
-    <template v-if="isAuthenticated">
+    <!-- showAuthedUi keeps SSR HTML mounted while Convex confirms -->
+    <template v-if="showAuthedUi">
       <form
         style="display: flex; gap: 0.5rem; margin: 1.5rem 0"
         @submit.prevent="addTask"
@@ -76,15 +93,17 @@ async function onRemove(taskId: Id<'tasks'>) {
           v-model="draft"
           placeholder="New task"
           style="flex: 1; padding: 0.5rem"
+          :disabled="!isAuthenticated || busy"
         >
         <button
           type="submit"
-          :disabled="busy"
+          :disabled="!isAuthenticated || busy"
         >
           {{ creating ? 'Adding…' : 'Add' }}
         </button>
         <button
           type="button"
+          :disabled="!isAuthenticated"
           @click="refresh()"
         >
           Refresh
@@ -110,7 +129,7 @@ async function onRemove(taskId: Id<'tasks'>) {
           <input
             type="checkbox"
             :checked="task.completed"
-            :disabled="busy"
+            :disabled="!isAuthenticated || busy"
             @change="onToggle(task._id)"
           >
           <span :style="{ textDecoration: task.completed ? 'line-through' : 'none', flex: 1 }">
@@ -118,7 +137,7 @@ async function onRemove(taskId: Id<'tasks'>) {
           </span>
           <button
             type="button"
-            :disabled="busy"
+            :disabled="!isAuthenticated || busy"
             @click="onRemove(task._id)"
           >
             Delete

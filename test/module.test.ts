@@ -310,6 +310,15 @@ describe('authStorage helpers', () => {
       .toBe('__convexAuthJWT_httpshappyanimal123convexcloud')
   })
 
+  it('no-ops readLocal/writeLocal when window is undefined (SSR)', async () => {
+    const { readLocal, writeLocal } = await import('../src/runtime/utils/authStorage')
+    // Node vitest environment has no DOM window for this assertion path —
+    // auth-storage.test.ts covers the happy-dom branch.
+    expect(typeof window).toBe('undefined')
+    expect(readLocal('k')).toBeNull()
+    expect(() => writeLocal('k', 'v')).not.toThrow()
+  })
+
   it('flattens FormData like the React Convex Auth client', () => {
     const form = new FormData()
     form.set('email', 'a@b.co')
@@ -334,6 +343,13 @@ describe('authStorage helpers', () => {
     expect(resolveAuthCookieName({ cookie: 'only-cookie' })).toBe('only-cookie')
     expect(resolveAuthCookieName(undefined)).toBeUndefined()
     expect(resolveAuthCookieName({})).toBeUndefined()
+  })
+
+  it('uses HttpOnly JWT cookie name when httpOnly is enabled', () => {
+    expect(resolveAuthCookieName({ provider: 'convex-auth', httpOnly: true }))
+      .toBe('__convexAuthJWT')
+    expect(resolveAuthCookieName({ httpOnly: true, cookie: 'custom' }))
+      .toBe('custom')
   })
 
   it('maps cookie values to an SSR token', () => {

@@ -6,7 +6,27 @@ export const JWT_STORAGE_KEY = '__convexAuthJWT'
 export const REFRESH_TOKEN_STORAGE_KEY = '__convexAuthRefreshToken'
 export const VERIFIER_STORAGE_KEY = '__convexAuthOAuthVerifier'
 
+export const AUTH_JWT_COOKIE_MAX_AGE = 60 * 60 * 24 * 30
+
 export const DEFAULT_CONVEX_AUTH_COOKIE = 'convex_jwt'
+/** Readable marker so the client knows an HttpOnly session exists. */
+export const DEFAULT_AUTH_PRESENT_COOKIE = 'convex_auth_present'
+/** HttpOnly JWT cookie (Next.js Convex Auth naming). */
+export const HTTPONLY_JWT_COOKIE = '__convexAuthJWT'
+/** HttpOnly refresh cookie. */
+export const HTTPONLY_REFRESH_COOKIE = '__convexAuthRefreshToken'
+
+export type ConvexAuthConfig = {
+  provider?: string
+  cookie?: string
+  /**
+   * Store JWT + refresh in HttpOnly cookies via Nitro (Next.js parity).
+   * When true, JS cannot read tokens; `fetchToken` hits `/api/convex/auth/*`.
+   */
+  httpOnly?: boolean
+  /** Readable presence cookie when `httpOnly` is set. */
+  presentCookie?: string
+}
 
 export function storageNamespace(url: string): string {
   return url.replace(/[^a-zA-Z0-9]/g, '')
@@ -39,13 +59,14 @@ export function flattenSignInParams(
 }
 
 /**
- * Resolve the auth cookie name for runtime config.
- * When `provider === 'convex-auth'` and cookie is omitted, default to `convex_jwt`.
+ * Resolve the auth cookie name for runtime config / SSR JWT reads.
+ * When `provider === 'convex-auth'` and cookie is omitted, default to `convex_jwt`
+ * (or the HttpOnly JWT name when `httpOnly` is enabled).
  */
-export function resolveAuthCookieName(auth?: {
-  provider?: string
-  cookie?: string
-}): string | undefined {
+export function resolveAuthCookieName(auth?: ConvexAuthConfig): string | undefined {
+  if (auth?.httpOnly) {
+    return auth.cookie ?? HTTPONLY_JWT_COOKIE
+  }
   if (auth?.cookie) {
     return auth.cookie
   }
@@ -53,6 +74,28 @@ export function resolveAuthCookieName(auth?: {
     return DEFAULT_CONVEX_AUTH_COOKIE
   }
   return undefined
+}
+
+export function resolveAuthPresentCookieName(
+  auth?: ConvexAuthConfig,
+): string | undefined {
+  if (!auth?.httpOnly) {
+    return undefined
+  }
+  return auth.presentCookie ?? DEFAULT_AUTH_PRESENT_COOKIE
+}
+
+export function resolveAuthRefreshCookieName(
+  auth?: ConvexAuthConfig,
+): string | undefined {
+  if (!auth?.httpOnly) {
+    return undefined
+  }
+  return HTTPONLY_REFRESH_COOKIE
+}
+
+export function isHttpOnlyAuth(auth?: ConvexAuthConfig): boolean {
+  return auth?.httpOnly === true
 }
 
 /** Empty / missing cookies are not a session. */

@@ -1,15 +1,31 @@
-# npm publish on merge to main
+# Ranked improvements for @convex/nuxt
 
 ## Plan
 
-- [x] Add `.github/workflows/release.yml` (verify then semantic-release, pnpm, OIDC permissions)
-- [x] Add `release.config.js`, pin `semantic-release`, set `publishConfig.access: public`
-- [x] Document conventional commits, first-release versioning, and npm trusted publisher setup
+- [x] P0.1 Auth hydration: `showAuthedUi`, matching SSR/client first paint, fix TasksDemo
+- [x] P0.2 Reactive `useAsyncData` keys (+ skip key stability tests)
+- [x] P0.3 Watch `ssrToken` / `options.token` on HttpClient path
+- [x] P1 Nitro `requireConvexAuth` / `getConvexToken`
+- [x] P1 Auth layout helpers (`Authenticated` / `Unauthenticated` / `AuthLoading`)
+- [x] P1 Optimistic updates on `useConvexMutation`
+- [x] P1 Playground demos (action, live:false, auth gate)
+- [x] P2 `useConvexPaginatedQuery`
+- [x] P2 HttpOnly dual-cookie auth via Nitro
+- [x] P2 Connection state + DevTools + real-deployment e2e scaffold
 
 ## Review
 
-- Workflow runs on `push` to `main` and `workflow_dispatch`: verify (`test` / `typecheck` / `build`) then release.
-- Release job uses `id-token: write` for npm trusted publishing; optional `NPM_TOKEN` secret as fallback.
-- semantic-release plugins: commit-analyzer, release-notes-generator, npm, github (no `@semantic-release/git`).
-- Repository URL set to `jrmybtlr/convex-nuxt`; README Releasing section + roadmap item checked.
-- Local `semantic-release --dry-run` loads config; auth failures expected without CI tokens.
+### Done
+
+- **Hydration:** `showAuthedUi` on `useConvexAuth` / `useAuth`; server still stamps `isAuthenticated` for SSR queryArgs; client does not (avoids hydrate mismatch). Playground uses `<Authenticated>` / `showAuthedUi`; live queries still gate on `isAuthenticated`.
+- **Keys / token watch:** `useConvexQuery` passes a computed key into `useAsyncData` and watches `ssrToken` / `options.token`.
+- **Nitro:** `requireConvexAuth` / `getConvexToken`; playground tasks routes use them; `/api/shout` demos `fetchAction`.
+- **DX:** `Authenticated` / `Unauthenticated` / `AuthLoading`, `useConvexGate`, `optimisticUpdate` on mutations, `useConvexPaginatedQuery`, `useConvexConnectionState`, DevTools iframe tab + `window.__CONVEX_NUXT__`.
+- **HttpOnly:** `auth.httpOnly: true` → Nitro `/api/convex/auth/session`, HttpOnly JWT/refresh + readable presence cookie. Playground opts in.
+- **E2E scaffold:** `test/e2e/` skipped unless `E2E_CONVEX=1`.
+
+### Verify
+
+- `pnpm test` — 66 passed, 3 skipped
+- `pnpm typecheck` / `pnpm build` — green
+- Live browser against playground not run in this session (needs `pnpm run dev` + `dev:backend`)

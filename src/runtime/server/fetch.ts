@@ -44,7 +44,8 @@ function readConvexConfig(event?: H3Event): ConvexPublicConfig | undefined {
   }
 }
 
-function resolveUrl(options: ConvexFetchOptions): string {
+/** @internal Exported for unit tests. */
+export function resolveUrl(options: ConvexFetchOptions): string {
   if (options.url) {
     return options.url
   }
@@ -64,7 +65,8 @@ function resolveUrl(options: ConvexFetchOptions): string {
   )
 }
 
-function resolveToken(options: ConvexFetchOptions): string | undefined {
+/** @internal Exported for unit tests. */
+export function resolveToken(options: ConvexFetchOptions): string | undefined {
   if (options.token !== undefined) {
     return resolveFetchToken({ token: options.token })
   }

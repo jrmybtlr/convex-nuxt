@@ -6,11 +6,6 @@ const config = useRuntimeConfig()
 const url = computed(
   () => (config.public.convex as { url?: string } | undefined)?.url,
 )
-
-const { isAuthenticated, isLoading, hasSsrSession } = useAuth()
-const showTasks = computed(
-  () => isAuthenticated.value || hasSsrSession.value,
-)
 </script>
 
 <template>
@@ -19,6 +14,8 @@ const showTasks = computed(
     <p style="color: #555">
       HTML is rendered from an HttpClient snapshot (JWT cookie when signed in).
       After hydration the live subscription takes over without a loading flash.
+      Auth shell uses <code>showAuthedUi</code> /
+      <code>&lt;Authenticated&gt;</code> so SSR HTML survives client confirmation.
     </p>
 
     <p
@@ -31,14 +28,17 @@ const showTasks = computed(
     </p>
 
     <template v-else>
-      <p
-        v-if="isLoading && !showTasks"
-        style="color: #555"
-      >
-        Resolving auth…
-      </p>
-      <TasksDemo v-else-if="showTasks" />
-      <AuthForm v-else />
+      <AuthLoading>
+        <p style="color: #555">
+          Resolving auth…
+        </p>
+      </AuthLoading>
+      <Authenticated>
+        <TasksDemo />
+      </Authenticated>
+      <Unauthenticated>
+        <AuthForm />
+      </Unauthenticated>
     </template>
   </main>
 </template>

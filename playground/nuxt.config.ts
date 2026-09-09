@@ -8,7 +8,8 @@ export default defineNuxtConfig({
     auth: {
       // First-party Convex Auth: module owns plugin + useAuth / signIn / signOut.
       provider: 'convex-auth',
-      cookie: 'convex_jwt',
+      // HttpOnly JWT + refresh via Nitro `/api/convex/auth/session` (Next.js parity).
+      httpOnly: true,
     },
   },
 })

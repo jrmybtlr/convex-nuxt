@@ -56,11 +56,15 @@ Auto-imported:
 | API | Role |
 |---|---|
 | `useConvexQuery` | SSR HttpClient + payload + live overlay |
-| `useConvexMutation` | browser `ConvexClient.mutation` |
+| `useConvexPaginatedQuery` | SSR first page + client `loadMore` + live first page |
+| `useConvexMutation` | browser `ConvexClient.mutation` (+ optional `optimisticUpdate`) |
 | `useConvexAction` | browser `ConvexClient.action` |
 | `useConvex` | browser `ConvexClient` escape hatch |
-| `useConvexAuth` | provider-agnostic auth state + `setAuth` |
+| `useConvexAuth` | provider-agnostic auth state + `setAuth` + `showAuthedUi` |
+| `useConvexGate` | `{ showAuthedUi, showLoading, showSignedOut }` |
+| `useConvexConnectionState` | reactive WebSocket `ConnectionState` |
 | `useAuth` / `signIn` / `signOut` | first-party Convex Auth (when `provider: 'convex-auth'`) |
+| `Authenticated` / `Unauthenticated` / `AuthLoading` | auth layout components |
 
 Nitro / server routes (auto-imported in `server/`):
 
@@ -69,6 +73,8 @@ Nitro / server routes (auto-imported in `server/`):
 | `fetchQuery` | one-shot HttpClient query |
 | `fetchMutation` | one-shot HttpClient mutation |
 | `fetchAction` | one-shot HttpClient action |
+| `getConvexToken` | read JWT cookie from `event` |
+| `requireConvexAuth` | throw H3 401 when cookie missing |
 
 ### `useConvexQuery`
 
@@ -90,9 +96,9 @@ const { data, pending, error, refresh } = await useConvexQuery(
 - Use `'skip'` until auth args are ready so private queries do not fire anonymously.
   `'skip'` keeps the same payload key as empty args so SSR HTML survives the auth gate.
 - Pass `token` for authenticated SSR. Never put JWTs in `runtimeConfig.public`.
-- When `convex.auth.cookie` is set, `useConvexQuery` falls back to that cookie as `ssrToken`.
-- `hasSsrSession` is true while that cookie is present. Use it to keep an SSR-gated shell mounted; do not live-subscribe until `isAuthenticated`.
-- Cache keys use `getFunctionName` + `convexToJson`, not `String(query)`.
+- When `convex.auth.cookie` / HttpOnly auth is set, `useConvexQuery` falls back to that cookie as `ssrToken`.
+- `hasSsrSession` / `showAuthedUi` keep an SSR-gated shell mounted; do not live-subscribe until `isAuthenticated`.
+- Cache keys use `getFunctionName` + `convexToJson`, not `String(query)`, and stay reactive to args.
 - Set `convex.server: false` in `nuxt.config` to disable SSR snapshots globally.
 
 ### Auth
@@ -118,15 +124,26 @@ convex: {
 
 ```vue
 <script setup lang="ts">
-const { error, pending, signIn, signOut, isAuthenticated, hasSsrSession } = useAuth()
-// Gate the signed-in shell on cookie OR Convex confirmation so SSR HTML
-// does not flash the sign-in form. Keep live queries on `isAuthenticated`.
-const showApp = computed(() => isAuthenticated.value || hasSsrSession.value)
+const { error, pending, signIn, signOut, isAuthenticated, hasSsrSession, showAuthedUi } = useAuth()
+// Prefer showAuthedUi (or <Authenticated>) so SSR HTML does not flash the
+// sign-in form. Keep live queries on `isAuthenticated`.
+</script>
 
+<template>
+  <AuthLoading>Resolving…</AuthLoading>
+  <Authenticated>
+    <!-- signed-in shell -->
+  </Authenticated>
+  <Unauthenticated>
+    <!-- sign-in form -->
+  </Unauthenticated>
+</template>
+```
+
+```ts
 await signIn('password', { email, password, flow: 'signIn' })
 await signIn('github') // OAuth: redirect, then plugin finishes on ?code=
 await signOut()
-</script>
 ```
 
 You still own the Convex backend Auth setup:
@@ -137,9 +154,21 @@ You still own the Convex backend Auth setup:
 - `convex/auth.config.ts` — JWT issuer (`CONVEX_SITE_URL`)
 - Env: `JWT_PRIVATE_KEY` + `JWKS` (`npx @convex-dev/auth`), plus `SITE_URL` for OAuth
 
-JWT is stored in a readable cookie (`convex_jwt` by default) for SSR, and the
-refresh token in `localStorage`. Prefer HttpOnly dual-cookie (Next.js style) is
-a follow-up if you need a stronger XSS posture.
+By default the JWT is a readable cookie (`convex_jwt`) and the refresh token
+lives in `localStorage`. For Next.js-style HttpOnly dual cookies:
+
+```ts
+convex: {
+  url: process.env.NUXT_PUBLIC_CONVEX_URL,
+  auth: {
+    provider: 'convex-auth',
+    httpOnly: true, // JWT + refresh via Nitro `/api/convex/auth/session`
+  },
+}
+```
+
+A readable `convex_auth_present` marker drives `hasSsrSession` / `showAuthedUi`
+on the client; tokens themselves are HttpOnly.
 
 #### Bring your own (Clerk, Auth0, custom)
 
@@ -176,21 +205,43 @@ convex: {
 ### Mutations and actions
 
 ```ts
-const { mutate, pending, error } = useConvexMutation(api.tasks.create)
+const { mutate, pending, error } = useConvexMutation(api.tasks.create, {
+  optimisticUpdate: (localStore, args) => {
+    const existing = localStore.getQuery(api.tasks.list, {}) ?? []
+    localStore.setQuery(api.tasks.list, {}, [
+      { _id: 'tmp', text: args.text, completed: false },
+      ...existing,
+    ])
+  },
+})
 await mutate({ text: 'Ship it' })
 
 const { run } = useConvexAction(api.ai.summarize)
 await run({ text: '…' })
 ```
 
+### Pagination
+
+```ts
+const { results, status, isLoading, loadMore } = await useConvexPaginatedQuery(
+  api.tasks.listPaginated,
+  {},
+  { initialNumItems: 20 },
+)
+```
+
+The first page is SSR'd via HttpClient and kept live with `onUpdate`.
+`loadMore` fetches additional pages one-shot on the browser.
+
 ### Server routes
 
 Pass the H3 `event` so the helper resolves the deployment URL and (when
-`convex.auth.cookie` is set) the JWT cookie automatically:
+`convex.auth.cookie` / HttpOnly auth is set) the JWT cookie automatically:
 
 ```ts
 // server/api/tasks.get.ts
 export default defineEventHandler(async (event) => {
+  requireConvexAuth(event)
   return await fetchQuery(api.tasks.list, {}, { event })
 })
 ```
@@ -198,6 +249,7 @@ export default defineEventHandler(async (event) => {
 ```ts
 // server/api/tasks.post.ts
 export default defineEventHandler(async (event) => {
+  requireConvexAuth(event)
   const { text } = await readBody(event)
   return await fetchMutation(api.tasks.create, { text }, { event })
 })
@@ -218,7 +270,7 @@ export default defineNuxtConfig({
   modules: ['@convex/nuxt'],
   convex: {
     url: process.env.NUXT_PUBLIC_CONVEX_URL,
-    auth: { provider: 'convex-auth', cookie: 'convex_jwt' },
+    auth: { provider: 'convex-auth', httpOnly: true },
   },
 })
 ```
@@ -237,9 +289,11 @@ pnpm run dev
 ```
 
 - **Live** (`/`) — SSR snapshot + live WebSocket overlay (sign up, CRUD todos, refresh).
-- **Server routes** (`/server`) — Nitro `fetchQuery` / `fetchMutation` one-shots.
+- **Server routes** (`/server`) — Nitro `fetchQuery` / `fetchMutation` / `fetchAction` + `requireConvexAuth`.
   - `GET /api/health` — public (`curl localhost:3000/api/health`)
   - `GET` / `POST /api/tasks` — cookie JWT via `{ event }`
+  - `POST /api/shout` — public `fetchAction` demo
+- **Extras** (`/extras`) — `live: false`, pagination, action, connection state.
 
 ## Roadmap
 
@@ -257,11 +311,16 @@ pnpm run dev
 - [x] Real Convex playground backend + task tests
 - [x] Event-aware Nitro helpers + playground server examples
 - [x] Release automation
+- [x] Reactive `useAsyncData` keys + `ssrToken` watch
+- [x] `showAuthedUi` / auth layout components
+- [x] Nitro `requireConvexAuth` / `getConvexToken`
+- [x] Optimistic mutations
+- [x] `useConvexPaginatedQuery`
+- [x] HttpOnly dual-cookie SSR (Next.js parity)
+- [x] Connection state + Nuxt DevTools tab
+- [x] Optional live-deployment e2e scaffold (`test/e2e`)
 - [ ] Reactive arg identity edge cases beyond `watch`
-- [ ] Pagination
-- [ ] Integration tests against a real Convex deployment
-- [ ] Nuxt DevTools
-- [ ] HttpOnly dual-cookie SSR (Next.js parity)
+- [ ] Broader Playwright suite against a real Convex deployment
 
 ## Releasing
 

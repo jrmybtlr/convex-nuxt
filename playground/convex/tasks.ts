@@ -1,5 +1,6 @@
+import { paginationOptsValidator } from 'convex/server'
 import { v } from 'convex/values'
-import { mutation, query } from './_generated/server'
+import { action, mutation, query } from './_generated/server'
 import type { Doc, Id } from './_generated/dataModel'
 import type { MutationCtx, QueryCtx } from './_generated/server'
 import { getCurrentUserId, requireTaskOwner } from './lib/auth'
@@ -44,6 +45,23 @@ export const list = query({
   },
 })
 
+export const listPaginated = query({
+  args: { paginationOpts: paginationOptsValidator },
+  returns: v.object({
+    page: v.array(taskValidator),
+    isDone: v.boolean(),
+    continueCursor: v.string(),
+  }),
+  handler: async (ctx, args) => {
+    const userId = await getCurrentUserId(ctx)
+    return await ctx.db
+      .query('tasks')
+      .withIndex('by_user', (q) => q.eq('userId', userId))
+      .order('desc')
+      .paginate(args.paginationOpts)
+  },
+})
+
 export const create = mutation({
   args: {
     text: v.string(),
@@ -80,5 +98,20 @@ export const remove = mutation({
     await requireTaskOwner(ctx, args.taskId)
     await ctx.db.delete(args.taskId)
     return null
+  },
+})
+
+/**
+ * Demo action for playground `useConvexAction` / `fetchAction`.
+ */
+export const shout = action({
+  args: { text: v.string() },
+  returns: v.string(),
+  handler: async (_ctx, args) => {
+    const text = args.text.trim()
+    if (!text) {
+      throw new Error('text is required')
+    }
+    return text.toUpperCase()
   },
 })

@@ -13,6 +13,9 @@ const tasksError = ref<string | null>(null)
 const tasksPending = ref(false)
 const draft = ref('')
 const creating = ref(false)
+const shoutDraft = ref('hello')
+const shouting = ref(false)
+const shoutResult = ref<{ shouted: string } | null>(null)
 
 async function loadHealth() {
   healthError.value = null
@@ -77,6 +80,28 @@ async function createTask() {
   }
 }
 
+async function runShout() {
+  const text = shoutDraft.value.trim()
+  if (!text) {
+    return
+  }
+  shouting.value = true
+  try {
+    shoutResult.value = await $fetch<{ shouted: string }>('/api/shout', {
+      method: 'POST',
+      body: { text },
+    })
+  }
+  catch (cause: unknown) {
+    shoutResult.value = null
+    const err = cause as { statusMessage?: string, message?: string }
+    tasksError.value = err?.statusMessage ?? err?.message ?? String(cause)
+  }
+  finally {
+    shouting.value = false
+  }
+}
+
 await loadHealth()
 </script>
 
@@ -85,8 +110,10 @@ await loadHealth()
     <h1>Server routes</h1>
     <p style="color: #555">
       These calls go through Nitro
-      <code>fetchQuery</code> / <code>fetchMutation</code>
-      (fresh HttpClient per request). They are
+      <code>fetchQuery</code> / <code>fetchMutation</code> /
+      <code>fetchAction</code>
+      (fresh HttpClient per request) with
+      <code>requireConvexAuth(event)</code> on protected routes. They are
       <strong>one-shot</strong> — not live. For SSR snapshot + WebSocket overlay,
       use the <NuxtLink to="/">Live</NuxtLink> page.
     </p>
@@ -122,8 +149,8 @@ await loadHealth()
         GET/POST /api/tasks
       </h2>
       <p style="color: #555; font-size: 0.9rem">
-        Authenticated via <code>convex_jwt</code> cookie
-        (<code>{ event }</code> on the fetch helper). Sign in on Live first.
+        Authenticated via the Convex auth cookie
+        (<code>{ event }</code> + <code>requireConvexAuth</code>). Sign in on Live first.
       </p>
 
       <form
@@ -177,6 +204,35 @@ await loadHealth()
       >
         Click “GET list” after signing in.
       </p>
+    </section>
+
+    <section style="margin: 2rem 0; padding: 1rem; border: 1px solid #eee; border-radius: 8px">
+      <h2 style="margin-top: 0; font-size: 1.1rem">
+        POST /api/shout
+      </h2>
+      <p style="color: #555; font-size: 0.9rem">
+        Public <code>fetchAction</code> demo — no cookie required.
+      </p>
+      <form
+        style="display: flex; gap: 0.5rem; margin: 1rem 0"
+        @submit.prevent="runShout"
+      >
+        <input
+          v-model="shoutDraft"
+          placeholder="Text to shout"
+          style="flex: 1; padding: 0.5rem"
+        >
+        <button
+          type="submit"
+          :disabled="shouting"
+        >
+          {{ shouting ? '…' : 'POST shout' }}
+        </button>
+      </form>
+      <pre
+        v-if="shoutResult"
+        style="margin-top: 0.75rem; background: #f6f8fa; padding: 0.75rem; border-radius: 6px"
+      >{{ shoutResult }}</pre>
     </section>
   </main>
 </template>

@@ -30,12 +30,18 @@ export default defineNuxtPlugin({
 
     // Mirror the SSR cookie onto HttpClient refreshes (Refresh button, watch).
     const ssrToken = useSsrTokenRef()
+    const auth = createAuthContext()
+    // Match server first paint: cookie means the authed shell can mount via
+    // `showAuthedUi` / `hasSsrSession`. Do **not** stamp `isAuthenticated` —
+    // that stays false until Convex confirms (or convex-auth wires setAuth).
+    // Server plugin may set isAuthenticated for SSR queryArgs; client must
+    // not, or hydration diverges once the auth plugin resets confirmation.
 
     const ctx: ConvexNuxtContext = {
       url,
       client,
       ssrToken,
-      auth: createAuthContext(),
+      auth,
       createHttpClient: (options) => createHttpClient(url, options),
     }
 

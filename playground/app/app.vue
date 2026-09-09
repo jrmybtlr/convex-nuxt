@@ -9,6 +9,9 @@
       <NuxtLink to="/server">
         Server routes
       </NuxtLink>
+      <NuxtLink to="/extras">
+        Extras
+      </NuxtLink>
     </nav>
     <NuxtPage />
   </div>

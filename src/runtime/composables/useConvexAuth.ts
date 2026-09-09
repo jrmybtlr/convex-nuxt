@@ -6,6 +6,7 @@ import {
   type ComputedRef,
   type MaybeRefOrGetter,
 } from 'vue'
+import { useHasSsrSessionRef } from '../utils/authCookie'
 import { useConvexContext } from '../utils/context'
 import { resolveConvexAuthState } from '../utils/authState'
 
@@ -41,6 +42,14 @@ export interface UseConvexAuthReturn {
    * shell mounted while Convex confirms — do not live-subscribe on this alone.
    */
   hasSsrSession: ComputedRef<boolean>
+  /**
+   * Mount the signed-in shell when the SSR cookie is present **or** Convex
+   * has confirmed auth. Prefer this over `isAuthenticated` alone so SSR HTML
+   * does not flash the signed-out gate during client confirmation.
+   *
+   * Live subscriptions must still gate on `isAuthenticated` (use `'skip'`).
+   */
+  showAuthedUi: ComputedRef<boolean>
 }
 
 /**
@@ -57,7 +66,11 @@ export function useConvexAuth(
 ): UseConvexAuthReturn {
   const ctx = useConvexContext()
   const auth = ctx.auth
-  const hasSsrSession = computed(() => !!ctx.ssrToken.value)
+  // Prefer presence cookie when JWT is HttpOnly (client cannot read the token).
+  const hasSsrSession = useHasSsrSessionRef()
+  const showAuthedUi = computed(
+    () => auth.isAuthenticated.value || hasSsrSession.value,
+  )
 
   if (setup) {
     if (import.meta.server) {
@@ -67,6 +80,7 @@ export function useConvexAuth(
         isAuthenticated: computed(() => auth.isAuthenticated.value),
         isRefreshing: computed(() => auth.isRefreshing.value),
         hasSsrSession,
+        showAuthedUi,
       }
     }
 
@@ -141,6 +155,7 @@ export function useConvexAuth(
     isAuthenticated: computed(() => auth.isAuthenticated.value),
     isRefreshing: computed(() => auth.isRefreshing.value),
     hasSsrSession,
+    showAuthedUi,
   }
 }
 

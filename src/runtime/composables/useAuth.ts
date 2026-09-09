@@ -12,9 +12,13 @@ import {
 } from 'nuxt/app'
 import { useConvexAuth } from './useConvexAuth'
 import { withRefreshMutex } from '../utils/authMutex'
-import { useAuthJwtCookie } from '../utils/authCookie'
+import {
+  useAuthJwtCookie,
+  useAuthPresentCookie,
+} from '../utils/authCookie'
 import {
   flattenSignInParams,
+  isHttpOnlyAuth,
   JWT_STORAGE_KEY,
   readLocal,
   REFRESH_TOKEN_STORAGE_KEY,
@@ -22,6 +26,7 @@ import {
   storageKey,
   VERIFIER_STORAGE_KEY,
   writeLocal,
+  type ConvexAuthConfig,
 } from '../utils/authStorage'
 import { tryUseConvexContext } from '../utils/context'
 
@@ -69,6 +74,12 @@ export interface UseAuthReturn {
    * shell mounted while Convex confirms — do not live-subscribe on this alone.
    */
   hasSsrSession: ComputedRef<boolean>
+  /**
+   * Mount the signed-in shell when the SSR cookie is present **or** Convex
+   * has confirmed auth. Prefer this over `isAuthenticated` alone.
+   * Live subscriptions must still gate on `isAuthenticated`.
+   */
+  showAuthedUi: ComputedRef<boolean>
   error: Ref<string | null>
   pending: Ref<boolean>
   signIn: typeof signIn
@@ -91,6 +102,7 @@ export function useAuth(): UseAuthReturn {
       isAuthenticated: computed(() => false),
       isRefreshing: computed(() => false),
       hasSsrSession: computed(() => false),
+      showAuthedUi: computed(() => false),
       error: session.error,
       pending: session.pending,
       signIn,
@@ -105,6 +117,7 @@ export function useAuth(): UseAuthReturn {
     isAuthenticated: convexAuth.isAuthenticated,
     isRefreshing: convexAuth.isRefreshing,
     hasSsrSession: convexAuth.hasSsrSession,
+    showAuthedUi: convexAuth.showAuthedUi,
     error: session.error,
     pending: session.pending,
     signIn,
@@ -151,7 +164,7 @@ export async function signIn(
     }
 
     if (result.tokens !== undefined) {
-      persistTokens(session, result.tokens)
+      await persistTokens(session, result.tokens)
       return { signingIn: result.tokens !== null }
     }
 
@@ -192,7 +205,7 @@ export async function signOut(): Promise<void> {
         // Already signed out is fine.
       }
     }
-    persistTokens(session, null)
+    await persistTokens(session, null)
   }
   finally {
     session.pending.value = false
@@ -207,12 +220,96 @@ export function hydrateAuthFromStorage(): void {
     session.hasSession.value = false
     return
   }
+
+  if (session.httpOnly) {
+    // Sync path: presence cookie set by Nitro after sign-in / prior SSR.
+    const present = useAuthPresentCookie()
+    if (present?.value === '1') {
+      session.hasSession.value = true
+      session.isLoading.value = false
+      return
+    }
+    // Async confirm — keep loading until the session route responds.
+    session.isLoading.value = true
+    void fetchAuthSession().then((result) => {
+      session.hasSession.value = result.hasSession
+      session.isLoading.value = false
+      if (result.hasSession) {
+        const marker = useAuthPresentCookie()
+        if (marker) {
+          marker.value = '1'
+        }
+      }
+    })
+    return
+  }
+
   const token = readLocal(session.jwtKey.value)
   session.hasSession.value = token !== null
   session.isLoading.value = false
   if (token) {
     setJwtCookie(token)
   }
+}
+
+/** @internal Token fetcher for `useConvexAuth({ fetchToken })`. */
+export async function getAuthToken({
+  forceRefreshToken,
+}: {
+  forceRefreshToken: boolean
+}): Promise<string | null> {
+  const session = useAuthSession()
+  const convexUrl = session.convexUrl
+  if (!convexUrl) {
+    return null
+  }
+
+  if (session.httpOnly) {
+    return withRefreshMutex(session.refreshKey.value, async () => {
+      if (!forceRefreshToken) {
+        const current = await fetchAuthSession()
+        if (current.token) {
+          session.hasSession.value = true
+          return current.token
+        }
+      }
+      const refreshed = await refreshAuthSession()
+      if (!refreshed) {
+        await clearAuthSession()
+        session.hasSession.value = false
+        return null
+      }
+      session.hasSession.value = true
+      return refreshed
+    })
+  }
+
+  if (!forceRefreshToken) {
+    return readLocal(session.jwtKey.value)
+  }
+
+  return withRefreshMutex(session.refreshKey.value, async () => {
+    const refreshToken = readLocal(session.refreshKey.value)
+    if (!refreshToken) {
+      persistTokens(session, null)
+      return null
+    }
+
+    try {
+      const result = await callSignInWithRetry(convexUrl, { refreshToken })
+      const tokens = result.tokens ?? null
+      if (!tokens) {
+        persistTokens(session, null)
+        return null
+      }
+      persistTokens(session, tokens)
+      return tokens.token
+    }
+    catch {
+      persistTokens(session, null)
+      return null
+    }
+  })
 }
 
 /** @internal Sync check for OAuth `?code=` + stored verifier (no await). */
@@ -259,59 +356,19 @@ export async function consumeOAuthCodeFromUrl(): Promise<boolean> {
       params: { code: code! },
       verifier: verifier!,
     })
-    persistTokens(session, result.tokens ?? null)
+    await persistTokens(session, result.tokens ?? null)
     return result.tokens != null
   }
   catch (cause) {
     const message
       = cause instanceof Error ? cause.message : 'OAuth callback failed'
     session.error.value = message
-    persistTokens(session, null)
+    await persistTokens(session, null)
     return false
   }
   finally {
     session.pending.value = false
   }
-}
-
-/** @internal Token fetcher for `useConvexAuth({ fetchToken })`. */
-export async function getAuthToken({
-  forceRefreshToken,
-}: {
-  forceRefreshToken: boolean
-}): Promise<string | null> {
-  const session = useAuthSession()
-  const convexUrl = session.convexUrl
-  if (!convexUrl) {
-    return null
-  }
-
-  if (!forceRefreshToken) {
-    return readLocal(session.jwtKey.value)
-  }
-
-  return withRefreshMutex(session.refreshKey.value, async () => {
-    const refreshToken = readLocal(session.refreshKey.value)
-    if (!refreshToken) {
-      persistTokens(session, null)
-      return null
-    }
-
-    try {
-      const result = await callSignInWithRetry(convexUrl, { refreshToken })
-      const tokens = result.tokens ?? null
-      if (!tokens) {
-        persistTokens(session, null)
-        return null
-      }
-      persistTokens(session, tokens)
-      return tokens.token
-    }
-    catch {
-      persistTokens(session, null)
-      return null
-    }
-  })
 }
 
 /** @internal Provider session flags for `useConvexAuth`. */
@@ -325,6 +382,7 @@ export function useAuthProviderState() {
 
 interface AuthSession {
   convexUrl: string | undefined
+  httpOnly: boolean
   jwtKey: ComputedRef<string>
   refreshKey: ComputedRef<string>
   verifierKey: ComputedRef<string>
@@ -337,9 +395,10 @@ interface AuthSession {
 function useAuthSession(): AuthSession {
   const config = useRuntimeConfig()
   const convexConfig = config.public.convex as
-    | { url?: string, auth?: { provider?: string, cookie?: string } }
+    | { url?: string, auth?: ConvexAuthConfig }
     | undefined
   const convexUrl = convexConfig?.url
+  const httpOnly = isHttpOnlyAuth(convexConfig?.auth)
 
   const isLoading = useState('convex-auth-loading', () => true)
   const hasSession = useState('convex-auth-has-session', () => false)
@@ -362,6 +421,7 @@ function useAuthSession(): AuthSession {
 
   return {
     convexUrl,
+    httpOnly,
     jwtKey,
     refreshKey,
     verifierKey,
@@ -380,7 +440,89 @@ function setJwtCookie(token: string | null): void {
   cookie.value = token
 }
 
-function persistTokens(session: AuthSession, tokens: AuthTokens | null): void {
+function setPresentCookie(value: string | null): void {
+  const cookie = useAuthPresentCookie()
+  if (!cookie) {
+    return
+  }
+  cookie.value = value
+}
+
+const AUTH_SESSION_PATH = '/api/convex/auth/session'
+
+async function fetchAuthSession(): Promise<{
+  hasSession: boolean
+  token: string | null
+}> {
+  try {
+    return await $fetch<{ hasSession: boolean, token: string | null }>(
+      AUTH_SESSION_PATH,
+      { method: 'GET' },
+    )
+  }
+  catch {
+    return { hasSession: false, token: null }
+  }
+}
+
+async function refreshAuthSession(): Promise<string | null> {
+  try {
+    const result = await $fetch<{ token: string | null }>(AUTH_SESSION_PATH, {
+      method: 'POST',
+      body: { refresh: true },
+    })
+    return result.token
+  }
+  catch {
+    return null
+  }
+}
+
+async function clearAuthSession(): Promise<void> {
+  try {
+    await $fetch(AUTH_SESSION_PATH, { method: 'DELETE' })
+  }
+  catch {
+    // ignore
+  }
+  setPresentCookie(null)
+}
+
+async function writeHttpOnlySession(tokens: AuthTokens | null): Promise<void> {
+  if (tokens === null) {
+    await clearAuthSession()
+    return
+  }
+  await $fetch(AUTH_SESSION_PATH, {
+    method: 'POST',
+    body: {
+      token: tokens.token,
+      refreshToken: tokens.refreshToken,
+    },
+  })
+  setPresentCookie('1')
+}
+
+async function persistTokens(
+  session: AuthSession,
+  tokens: AuthTokens | null,
+): Promise<void> {
+  if (session.httpOnly) {
+    if (tokens === null) {
+      await writeHttpOnlySession(null)
+      // Also clear any legacy localStorage from before httpOnly was enabled.
+      writeLocal(session.jwtKey.value, null)
+      writeLocal(session.refreshKey.value, null)
+      session.hasSession.value = false
+      session.isLoading.value = false
+      return
+    }
+    session.hasSession.value = true
+    session.isLoading.value = false
+    await writeHttpOnlySession(tokens)
+    return
+  }
+
   if (tokens === null) {
     writeLocal(session.jwtKey.value, null)
     writeLocal(session.refreshKey.value, null)
