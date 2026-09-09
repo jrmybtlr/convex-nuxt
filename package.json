@@ -1,0 +1,57 @@
+{
+  "name": "@convex/nuxt",
+  "version": "0.0.2",
+  "description": "First-class Convex integration for Nuxt",
+  "type": "module",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/your-org/convex-nuxt.git"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/module.d.mts",
+      "import": "./dist/module.mjs"
+    },
+    "./runtime/*": "./dist/runtime/*"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "nuxt-module-build build",
+    "dev:prepare": "nuxt-module-build build --stub && nuxt-module-build prepare && nuxi prepare playground",
+    "dev": "nuxi dev playground --dotenv .env.local",
+    "dev:backend": "cd playground && convex dev",
+    "build:playground": "nuxi build playground",
+    "typecheck": "vue-tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "peerDependencies": {
+    "convex": "^1.21.0",
+    "nuxt": "^4.0.0",
+    "vue": "^3.5.0"
+  },
+  "dependencies": {
+    "@nuxt/kit": "^4.0.0",
+    "defu": "^6.1.4"
+  },
+  "devDependencies": {
+    "@auth/core": "0.41.1",
+    "@convex-dev/auth": "^0.0.95",
+    "@nuxt/module-builder": "^1.0.0",
+    "@nuxt/schema": "^4.0.0",
+    "@nuxt/test-utils": "^3.0.0",
+    "@types/node": "^26.5.0",
+    "convex": "^1.45.0",
+    "convex-helpers": "^0.1.124",
+    "convex-test": "^0.0.56",
+    "nuxt": "^4.5.2",
+    "typescript": "^5.9.0",
+    "vitest": "^3.2.0",
+    "vue": "^3.5.0",
+    "vue-tsc": "^3.0.0"
+  },
+  "packageManager": "pnpm@10.0.0"
+}

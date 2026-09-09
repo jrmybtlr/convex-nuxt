@@ -1,0 +1,20 @@
+{
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "nuxt dev",
+    "build": "nuxt build",
+    "typecheck": "nuxt typecheck",
+    "convex:dev": "convex dev",
+    "convex:codegen": "convex codegen"
+  },
+  "dependencies": {
+    "@auth/core": "0.41.1",
+    "@convex-dev/auth": "^0.0.95",
+    "convex": "^1.45.0",
+    "convex-helpers": "^0.1.124"
+  },
+  "devDependencies": {
+    "convex-test": "^0.0.56"
+  }
+}
