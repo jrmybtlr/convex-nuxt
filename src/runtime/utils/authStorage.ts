@@ -55,6 +55,13 @@ export function resolveAuthCookieName(auth?: {
   return undefined
 }
 
+/** Empty / missing cookies are not a session. */
+export function cookieValueToSsrToken(
+  value: string | null | undefined,
+): string | undefined {
+  return value || undefined
+}
+
 export function readLocal(key: string): string | null {
   if (typeof window === 'undefined') {
     return null

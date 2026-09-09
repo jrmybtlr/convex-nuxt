@@ -6,3 +6,4 @@ dist
 .env.*
 !.env.example
 .DS_Store
+playground/.convex/local/default/convex_local_backend.sqlite3

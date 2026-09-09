@@ -7,18 +7,17 @@ import {
   type Ref,
 } from 'vue'
 import {
-  useCookie,
   useRuntimeConfig,
   useState,
 } from 'nuxt/app'
 import { useConvexAuth } from './useConvexAuth'
 import { withRefreshMutex } from '../utils/authMutex'
+import { useAuthJwtCookie } from '../utils/authCookie'
 import {
   flattenSignInParams,
   JWT_STORAGE_KEY,
   readLocal,
   REFRESH_TOKEN_STORAGE_KEY,
-  resolveAuthCookieName,
   shouldConsumeOAuthCode,
   storageKey,
   VERIFIER_STORAGE_KEY,
@@ -65,6 +64,11 @@ export interface UseAuthReturn {
   isLoading: ComputedRef<boolean>
   isAuthenticated: ComputedRef<boolean>
   isRefreshing: ComputedRef<boolean>
+  /**
+   * JWT cookie is present. Use with `isAuthenticated` to keep an SSR-gated
+   * shell mounted while Convex confirms — do not live-subscribe on this alone.
+   */
+  hasSsrSession: ComputedRef<boolean>
   error: Ref<string | null>
   pending: Ref<boolean>
   signIn: typeof signIn
@@ -86,6 +90,7 @@ export function useAuth(): UseAuthReturn {
       isLoading: computed(() => session.isLoading.value),
       isAuthenticated: computed(() => false),
       isRefreshing: computed(() => false),
+      hasSsrSession: computed(() => false),
       error: session.error,
       pending: session.pending,
       signIn,
@@ -99,6 +104,7 @@ export function useAuth(): UseAuthReturn {
     isLoading: convexAuth.isLoading,
     isAuthenticated: convexAuth.isAuthenticated,
     isRefreshing: convexAuth.isRefreshing,
+    hasSsrSession: convexAuth.hasSsrSession,
     error: session.error,
     pending: session.pending,
     signIn,
@@ -205,7 +211,7 @@ export function hydrateAuthFromStorage(): void {
   session.hasSession.value = token !== null
   session.isLoading.value = false
   if (token) {
-    setJwtCookie(session, token)
+    setJwtCookie(token)
   }
 }
 
@@ -319,7 +325,6 @@ export function useAuthProviderState() {
 
 interface AuthSession {
   convexUrl: string | undefined
-  cookieName: string
   jwtKey: ComputedRef<string>
   refreshKey: ComputedRef<string>
   verifierKey: ComputedRef<string>
@@ -335,8 +340,6 @@ function useAuthSession(): AuthSession {
     | { url?: string, auth?: { provider?: string, cookie?: string } }
     | undefined
   const convexUrl = convexConfig?.url
-  const cookieName
-    = resolveAuthCookieName(convexConfig?.auth) ?? 'convex_jwt'
 
   const isLoading = useState('convex-auth-loading', () => true)
   const hasSession = useState('convex-auth-has-session', () => false)
@@ -359,7 +362,6 @@ function useAuthSession(): AuthSession {
 
   return {
     convexUrl,
-    cookieName,
     jwtKey,
     refreshKey,
     verifierKey,
@@ -370,13 +372,11 @@ function useAuthSession(): AuthSession {
   }
 }
 
-function setJwtCookie(session: AuthSession, token: string | null): void {
-  const cookie = useCookie(session.cookieName, {
-    sameSite: 'lax',
-    secure: process.env.NODE_ENV === 'production',
-    maxAge: 60 * 60 * 24 * 30,
-    path: '/',
-  })
+function setJwtCookie(token: string | null): void {
+  const cookie = useAuthJwtCookie()
+  if (!cookie) {
+    return
+  }
   cookie.value = token
 }
 
@@ -384,7 +384,7 @@ function persistTokens(session: AuthSession, tokens: AuthTokens | null): void {
   if (tokens === null) {
     writeLocal(session.jwtKey.value, null)
     writeLocal(session.refreshKey.value, null)
-    setJwtCookie(session, null)
+    setJwtCookie(null)
     session.hasSession.value = false
     session.isLoading.value = false
     return
@@ -396,7 +396,7 @@ function persistTokens(session: AuthSession, tokens: AuthTokens | null): void {
   session.hasSession.value = true
   session.isLoading.value = false
   nextTick(() => {
-    setJwtCookie(session, tokens.token)
+    setJwtCookie(tokens.token)
   })
 }
 

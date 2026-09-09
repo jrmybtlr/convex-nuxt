@@ -6,6 +6,7 @@ import { createHttpClient } from '../src/runtime/utils/http'
 import { resolveConvexAuthState } from '../src/runtime/utils/authState'
 import { resolveFetchToken } from '../src/runtime/utils/fetchToken'
 import {
+  cookieValueToSsrToken,
   flattenSignInParams,
   resolveAuthCookieName,
   shouldConsumeOAuthCode,
@@ -243,16 +244,24 @@ describe('resolveConvexAuthState', () => {
 describe('ssrToken fallback', () => {
   it('prefers an explicit query token over the cookie token', () => {
     const optionsToken = 'explicit'
-    const ssrToken = 'from-cookie'
+    const ssrToken = cookieValueToSsrToken('from-cookie')
     const token = optionsToken ?? ssrToken
     expect(token).toBe('explicit')
   })
 
   it('falls back to the SSR cookie token', () => {
     const optionsToken: string | undefined = undefined
-    const ssrToken = 'from-cookie'
+    const ssrToken = cookieValueToSsrToken('from-cookie')
     const token = optionsToken ?? ssrToken
     expect(token).toBe('from-cookie')
+  })
+
+  it('treats empty cookie values as no SSR session', () => {
+    expect(cookieValueToSsrToken('jwt')).toBe('jwt')
+    expect(!!cookieValueToSsrToken('jwt')).toBe(true)
+    expect(cookieValueToSsrToken(null)).toBeUndefined()
+    expect(cookieValueToSsrToken('')).toBeUndefined()
+    expect(!!cookieValueToSsrToken(undefined)).toBe(false)
   })
 })
 
@@ -325,6 +334,13 @@ describe('authStorage helpers', () => {
     expect(resolveAuthCookieName({ cookie: 'only-cookie' })).toBe('only-cookie')
     expect(resolveAuthCookieName(undefined)).toBeUndefined()
     expect(resolveAuthCookieName({})).toBeUndefined()
+  })
+
+  it('maps cookie values to an SSR token', () => {
+    expect(cookieValueToSsrToken('jwt')).toBe('jwt')
+    expect(cookieValueToSsrToken(null)).toBeUndefined()
+    expect(cookieValueToSsrToken('')).toBeUndefined()
+    expect(cookieValueToSsrToken(undefined)).toBeUndefined()
   })
 
   it('only consumes ?code= when a verifier is stored', () => {

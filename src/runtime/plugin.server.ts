@@ -1,6 +1,6 @@
-import { defineNuxtPlugin, useCookie, useRuntimeConfig } from 'nuxt/app'
+import { defineNuxtPlugin, useRuntimeConfig } from 'nuxt/app'
+import { useSsrTokenRef } from './utils/authCookie'
 import { createHttpClient } from './utils/http'
-import { resolveAuthCookieName } from './utils/authStorage'
 import {
   convexNuxtKey,
   createAuthContext,
@@ -25,16 +25,11 @@ export default defineNuxtPlugin({
       return
     }
 
-    let ssrToken: string | undefined
-    const cookieName = resolveAuthCookieName(convexConfig?.auth)
-    if (cookieName) {
-      ssrToken = useCookie(cookieName).value || undefined
-    }
-
+    const ssrToken = useSsrTokenRef()
     const auth = createAuthContext()
     // Opt-in cookie means this request can run authenticated SSR queries.
     // Mark the UI as authenticated so pages don't flash the signed-out gate.
-    if (ssrToken) {
+    if (ssrToken.value) {
       auth.providerAuthenticated.value = true
       auth.isConvexAuthenticated.value = true
       auth.isLoading.value = false

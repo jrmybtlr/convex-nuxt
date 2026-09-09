@@ -1,7 +1,7 @@
 import { ConvexClient } from 'convex/browser'
-import { defineNuxtPlugin, useCookie, useRuntimeConfig } from 'nuxt/app'
+import { defineNuxtPlugin, useRuntimeConfig } from 'nuxt/app'
+import { useSsrTokenRef } from './utils/authCookie'
 import { createHttpClient } from './utils/http'
-import { resolveAuthCookieName } from './utils/authStorage'
 import {
   convexNuxtKey,
   createAuthContext,
@@ -29,11 +29,7 @@ export default defineNuxtPlugin({
     const client = new ConvexClient(url)
 
     // Mirror the SSR cookie onto HttpClient refreshes (Refresh button, watch).
-    let ssrToken: string | undefined
-    const cookieName = resolveAuthCookieName(convexConfig?.auth)
-    if (cookieName) {
-      ssrToken = useCookie(cookieName).value || undefined
-    }
+    const ssrToken = useSsrTokenRef()
 
     const ctx: ConvexNuxtContext = {
       url,

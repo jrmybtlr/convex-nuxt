@@ -1,8 +1,4 @@
 <script setup lang="ts">
-/**
- * Nitro one-shot demos — contrast with `/` (SSR payload + live WebSocket).
- * Sign in on the Live page first so `convex_jwt` is set for authenticated routes.
- */
 
 type Task = {
   _id: string

@@ -5,9 +5,6 @@ import { api } from '~~/convex/_generated/api'
 const { isAuthenticated, isLoading, pending: authPending, signOut } = useAuth()
 
 const queryArgs = computed(() => {
-  // Subscribe only after Convex confirms auth. While loading / signed out,
-  // skip the live query so we keep the SSR cookie snapshot (see overlay)
-  // instead of racing an unauthenticated WebSocket subscribe.
   if (isAuthenticated.value) {
     return {}
   }

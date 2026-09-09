@@ -97,7 +97,7 @@ export async function useConvexQuery<Query extends FunctionReference<'query'>>(
         return null
       }
 
-      const token = options.token ?? ctx.ssrToken
+      const token = options.token ?? ctx.ssrToken.value
       const http = ctx.createHttpClient({ token })
       const result = await http.query(
         query,

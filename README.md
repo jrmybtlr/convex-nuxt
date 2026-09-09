@@ -91,6 +91,7 @@ const { data, pending, error, refresh } = await useConvexQuery(
   `'skip'` keeps the same payload key as empty args so SSR HTML survives the auth gate.
 - Pass `token` for authenticated SSR. Never put JWTs in `runtimeConfig.public`.
 - When `convex.auth.cookie` is set, `useConvexQuery` falls back to that cookie as `ssrToken`.
+- `hasSsrSession` is true while that cookie is present. Use it to keep an SSR-gated shell mounted; do not live-subscribe until `isAuthenticated`.
 - Cache keys use `getFunctionName` + `convexToJson`, not `String(query)`.
 - Set `convex.server: false` in `nuxt.config` to disable SSR snapshots globally.
 
@@ -117,7 +118,10 @@ convex: {
 
 ```vue
 <script setup lang="ts">
-const { error, pending, signIn, signOut, isAuthenticated } = useAuth()
+const { error, pending, signIn, signOut, isAuthenticated, hasSsrSession } = useAuth()
+// Gate the signed-in shell on cookie OR Convex confirmation so SSR HTML
+// does not flash the sign-in form. Keep live queries on `isAuthenticated`.
+const showApp = computed(() => isAuthenticated.value || hasSsrSession.value)
 
 await signIn('password', { email, password, flow: 'signIn' })
 await signIn('github') // OAuth: redirect, then plugin finishes on ?code=
@@ -152,7 +156,7 @@ useConvexAuth({
 ```
 
 ```ts
-const { isLoading, isAuthenticated, isRefreshing } = useConvexAuth()
+const { isLoading, isAuthenticated, isRefreshing, hasSsrSession } = useConvexAuth()
 
 const { data } = await useConvexQuery(
   api.tasks.list,

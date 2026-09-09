@@ -1,5 +1,5 @@
 import type { AuthTokenFetcher, ConvexClient, ConvexHttpClient } from 'convex/browser'
-import type { InjectionKey, Ref } from 'vue'
+import type { ComputedRef, InjectionKey, Ref } from 'vue'
 import { inject, ref } from 'vue'
 import { useNuxtApp } from 'nuxt/app'
 
@@ -29,9 +29,10 @@ export interface ConvexNuxtContext {
    */
   client: ConvexClient | null
   /**
-   * JWT from an optional auth cookie, available during SSR.
+   * JWT from the optional auth cookie. Reactive so sign-in/out updates
+   * HttpClient refreshes and `hasSsrSession`.
    */
-  ssrToken: string | undefined
+  ssrToken: ComputedRef<string | undefined>
   /**
    * Shared auth state for useConvexAuth.
    */

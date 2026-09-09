@@ -7,13 +7,9 @@ const url = computed(
   () => (config.public.convex as { url?: string } | undefined)?.url,
 )
 
-const { isAuthenticated, isLoading } = useAuth()
-const cookieName = (
-  config.public.convex as { auth?: { cookie?: string } } | undefined
-)?.auth?.cookie ?? 'convex_jwt'
-const jwtCookie = useCookie(cookieName)
+const { isAuthenticated, isLoading, hasSsrSession } = useAuth()
 const showTasks = computed(
-  () => isAuthenticated.value || !!jwtCookie.value,
+  () => isAuthenticated.value || hasSsrSession.value,
 )
 </script>
 

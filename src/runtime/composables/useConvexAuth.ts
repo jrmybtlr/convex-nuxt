@@ -36,6 +36,11 @@ export interface UseConvexAuthReturn {
   isLoading: ComputedRef<boolean>
   isAuthenticated: ComputedRef<boolean>
   isRefreshing: ComputedRef<boolean>
+  /**
+   * JWT cookie is present. Use with `isAuthenticated` to keep an SSR-gated
+   * shell mounted while Convex confirms — do not live-subscribe on this alone.
+   */
+  hasSsrSession: ComputedRef<boolean>
 }
 
 /**
@@ -43,7 +48,7 @@ export interface UseConvexAuthReturn {
  *
  * Call once with `{ fetchToken }` (typically in a client plugin) to wire
  * `ConvexClient.setAuth` + token refresh. Call without args anywhere to read
- * `{ isLoading, isAuthenticated, isRefreshing }`.
+ * `{ isLoading, isAuthenticated, isRefreshing, hasSsrSession }`.
  *
  * Same contract as React `useConvexAuth` / `ConvexProviderWithAuth`.
  */
@@ -52,6 +57,7 @@ export function useConvexAuth(
 ): UseConvexAuthReturn {
   const ctx = useConvexContext()
   const auth = ctx.auth
+  const hasSsrSession = computed(() => !!ctx.ssrToken.value)
 
   if (setup) {
     if (import.meta.server) {
@@ -60,6 +66,7 @@ export function useConvexAuth(
         isLoading: computed(() => auth.isLoading.value),
         isAuthenticated: computed(() => auth.isAuthenticated.value),
         isRefreshing: computed(() => auth.isRefreshing.value),
+        hasSsrSession,
       }
     }
 
@@ -133,6 +140,7 @@ export function useConvexAuth(
     isLoading: computed(() => auth.isLoading.value),
     isAuthenticated: computed(() => auth.isAuthenticated.value),
     isRefreshing: computed(() => auth.isRefreshing.value),
+    hasSsrSession,
   }
 }
 

@@ -26,6 +26,8 @@ export interface ModuleAuthOptions {
    * Cookie name whose value is a JWT used for authenticated SSR queries.
    * When set, the server plugin reads this cookie into `ctx.ssrToken` and
    * `useConvexQuery` falls back to it when `options.token` is omitted.
+   * `useAuth` / `useConvexAuth` expose the presence of this cookie as
+   * `hasSsrSession`.
    * Nitro `fetch*` helpers also read this cookie when `{ event }` is passed.
    *
    * Defaults to `'convex_jwt'` when `provider === 'convex-auth'`.

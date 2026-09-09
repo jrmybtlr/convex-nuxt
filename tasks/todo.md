@@ -1,19 +1,15 @@
-# Optional first-party Convex Auth
+# Expose hasSsrSession from the auth plugins
 
 ## Plan
 
-- [x] Extend ModuleAuthOptions with provider + default cookie; gate plugin and auto-imports
-- [x] Port playground useAuth into module runtime (signIn/signOut, storage, cookie, refresh mutex, OAuth)
-- [x] Add plugin.auth.client.ts that hydrates, finishes OAuth, and wires useConvexAuth
-- [x] Switch playground to provider: convex-auth; delete app-owned useAuth + auth plugin
-- [x] Unit tests for adapter helpers; README Convex Auth vs BYO; roadmap
+- [x] Shared `useAuthJwtCookie` / `useSsrTokenRef` helper (same cookie options everywhere)
+- [x] Plugins store a reactive `ssrToken` ref; server still seeds UI auth from it
+- [x] `useConvexAuth` / `useAuth` expose `hasSsrSession`; persistTokens writes via the helper
+- [x] Playground Live page drops cookie-name / `useCookie` plumbing
+- [x] Tests, README, typecheck
 
 ## Review
 
-- Opt-in `convex.auth.provider: 'convex-auth'` registers `plugin.auth.client` and auto-imports `useAuth` / `signIn` / `signOut`.
-- Cookie defaults to `convex_jwt` when the provider is set; BYO path unchanged.
-- Client talks to `auth:signIn` / `auth:signOut` via `makeFunctionReference` (no `@convex-dev/auth` runtime dep).
-- OAuth: store verifier on redirect; consume `?code=` only when a verifier exists.
-- Playground no longer owns auth adapter/plugin — forms call module APIs only.
-- Auth plugin / `useAuth` no-op gracefully when Convex URL is unset (avoids HMR 500s).
-- Verified: SSR HTML includes Sign-in form + `auth.provider: "convex-auth"`; unit tests + typecheck + module build pass.
+- Pages no longer resolve `convex.auth.cookie`. Gate the signed-in shell with `isAuthenticated || hasSsrSession`; keep live queries on `isAuthenticated`.
+- Both plugins share `useSsrTokenRef()` so HttpClient refreshes see cookie updates after sign-in.
+- Verified: unit tests + typecheck pass; signed-in SSR HTML includes the task shell (not AuthForm); Live + Server routes still work with the JWT cookie.
