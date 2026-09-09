@@ -6,7 +6,7 @@ import type {
   PaginationResult,
 } from 'convex/server'
 import { convexToJson, jsonToConvex } from 'convex/values'
-import { useAsyncData, useRuntimeConfig } from 'nuxt/app'
+import { useAsyncData, useNuxtApp, useRuntimeConfig } from 'nuxt/app'
 import {
   computed,
   onScopeDispose,
@@ -18,6 +18,7 @@ import {
   type MaybeRefOrGetter,
   type Ref,
 } from 'vue'
+import { resolveAuthGatedArgs } from '../utils/authGate'
 import { useConvexContext } from '../utils/context'
 import { convexQueryKey } from '../utils/queryKey'
 
@@ -55,6 +56,12 @@ export interface UseConvexPaginatedQueryOptions {
   server?: boolean
   /** JWT for the SSR / HttpClient first page. */
   token?: string
+  /**
+   * Skip first-page HttpClient and live paginated subscribe until Convex
+   * confirms auth. Same contract as `useConvexQuery({ authenticated: true })`.
+   * @default false
+   */
+  authenticated?: boolean
 }
 
 export type UseConvexPaginatedQueryReturn<Query extends PaginatedQueryReference> = {
@@ -112,13 +119,21 @@ export async function useConvexPaginatedQuery<
     runtimeConfig.public.convex as { server?: boolean } | undefined
   )?.server
   const server = options.server ?? defaultServer ?? true
+  const requireAuth = options.authenticated ?? false
   const ctx = useConvexContext()
 
-  const resolveArgs = (): PaginatedQueryArgs<Query> | 'skip' =>
+  const resolveRawArgs = (): PaginatedQueryArgs<Query> | 'skip' =>
     toValue(args) as PaginatedQueryArgs<Query> | 'skip'
 
-  const firstPageArgs = (): FunctionArgs<Query> | 'skip' => {
-    const base = resolveArgs()
+  const resolveEffectiveArgs = (): PaginatedQueryArgs<Query> | 'skip' =>
+    resolveAuthGatedArgs(resolveRawArgs(), {
+      authenticated: requireAuth,
+      isAuthenticated: ctx.auth.isAuthenticated.value,
+    })
+
+  const firstPageArgsFrom = (
+    base: PaginatedQueryArgs<Query> | 'skip',
+  ): FunctionArgs<Query> | 'skip' => {
     if (base === 'skip') {
       return 'skip'
     }
@@ -131,18 +146,26 @@ export async function useConvexPaginatedQuery<
     } as FunctionArgs<Query>
   }
 
+  // Key from raw args so auth-skip keeps the SSR first-page payload slot.
   const key = computed(() =>
-    convexQueryKey(query, firstPageArgs(), options.key),
+    convexQueryKey(query, firstPageArgsFrom(resolveRawArgs()), options.key),
   )
 
   const asyncData = await useAsyncData<PaginationResult<PaginatedQueryItem<Query>> | null>(
     key,
     async () => {
-      const pageArgs = firstPageArgs()
+      const pageArgs = firstPageArgsFrom(resolveEffectiveArgs())
       if (pageArgs === 'skip') {
         return null
       }
       const token = options.token ?? ctx.ssrToken.value
+      if (requireAuth && import.meta.client && !token) {
+        const nuxtApp = useNuxtApp()
+        const cached = nuxtApp.payload.data[toValue(key)]
+        return (cached ?? null) as PaginationResult<
+          PaginatedQueryItem<Query>
+        > | null
+      }
       const http = ctx.createHttpClient({ token })
       const result = await http.query(
         query as never,
@@ -157,6 +180,10 @@ export async function useConvexPaginatedQuery<
       watch: [
         () => toValue(args),
         () => options.token ?? ctx.ssrToken.value,
+        () =>
+          requireAuth
+          && ctx.auth.isAuthenticated.value
+          && !!(options.token ?? ctx.ssrToken.value),
       ],
     },
   )
@@ -169,6 +196,9 @@ export async function useConvexPaginatedQuery<
   const liveLoadMore = shallowRef<((numItems: number) => boolean) | null>(null)
 
   const results = computed((): Item[] => {
+    if (resolveEffectiveArgs() === 'skip') {
+      return asyncData.data.value?.page ?? []
+    }
     if (liveReady.value && live.value) {
       return live.value.results
     }
@@ -176,7 +206,11 @@ export async function useConvexPaginatedQuery<
   })
 
   const status = computed((): PaginationStatus => {
-    if (resolveArgs() === 'skip') {
+    if (resolveEffectiveArgs() === 'skip') {
+      // Keep SSR page status while auth-gated (not Exhausted empty).
+      if (asyncData.data.value) {
+        return asyncData.data.value.isDone ? 'Exhausted' : 'CanLoadMore'
+      }
       return 'Exhausted'
     }
     if (liveReady.value && live.value) {
@@ -211,7 +245,7 @@ export async function useConvexPaginatedQuery<
       liveLoadMore.value = null
       error.value = null
 
-      const base = resolveArgs()
+      const base = resolveEffectiveArgs()
       if (base === 'skip') {
         liveReady.value = true
         return
@@ -239,7 +273,12 @@ export async function useConvexPaginatedQuery<
     }
 
     watch(
-      () => [toValue(args), options.initialNumItems] as const,
+      () =>
+        [
+          toValue(args),
+          options.initialNumItems,
+          ctx.auth.isAuthenticated.value,
+        ] as const,
       subscribe,
       { immediate: true },
     )

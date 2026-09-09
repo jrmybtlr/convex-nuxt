@@ -4,7 +4,7 @@ import type {
   FunctionReturnType,
 } from 'convex/server'
 import { convexToJson, jsonToConvex } from 'convex/values'
-import { useAsyncData, useRuntimeConfig } from 'nuxt/app'
+import { useAsyncData, useNuxtApp, useRuntimeConfig } from 'nuxt/app'
 import {
   computed,
   onScopeDispose,
@@ -15,6 +15,7 @@ import {
   type MaybeRefOrGetter,
   type Ref,
 } from 'vue'
+import { resolveAuthGatedArgs } from '../utils/authGate'
 import { useConvexContext } from '../utils/context'
 import { resolveQueryOverlay } from '../utils/overlay'
 import { convexQueryKey } from '../utils/queryKey'
@@ -54,6 +55,17 @@ export interface UseConvexQueryOptions {
    * Never put this in public runtime config.
    */
   token?: string
+
+  /**
+   * Skip HttpClient fetch and live subscribe until Convex confirms auth
+   * (`isAuthenticated`). SSR still runs when the server plugin stamps auth
+   * from the JWT cookie; the client keeps the SSR payload via the overlay
+   * until `setAuth` confirms. Prefer this over manually wrapping args in
+   * `computed(() => isAuthenticated.value ? args : 'skip')`.
+   *
+   * @default false
+   */
+  authenticated?: boolean
 }
 
 export interface UseConvexQueryReturn<T> {
@@ -82,26 +94,43 @@ export async function useConvexQuery<Query extends FunctionReference<'query'>>(
   )?.server
   const server = options.server ?? defaultServer ?? true
   const live = options.live ?? true
+  const requireAuth = options.authenticated ?? false
   const ctx = useConvexContext()
 
-  const resolveArgs = (): ConvexQueryArgs<Query> =>
+  /** Caller-provided args (may be `'skip'` for non-auth gates). */
+  const resolveRawArgs = (): ConvexQueryArgs<Query> =>
     toValue(args) as ConvexQueryArgs<Query>
 
-  // Reactive key so parameterized queries get distinct payload slots.
-  // `'skip'` still shares the empty-args key (auth-gated SSR reuse).
+  /** Effective args for fetch / subscribe (keys still come from raw args). */
+  const resolveEffectiveArgs = (): ConvexQueryArgs<Query> =>
+    resolveAuthGatedArgs(resolveRawArgs(), {
+      authenticated: requireAuth,
+      isAuthenticated: ctx.auth.isAuthenticated.value,
+    })
+
+  // Reactive key from raw args so auth-skip keeps the same payload slot.
+  // Caller `'skip'` still shares the empty-args key (SSR reuse).
   const key = computed(() =>
-    convexQueryKey(query, resolveArgs(), options.key),
+    convexQueryKey(query, resolveRawArgs(), options.key),
   )
 
   const asyncData = await useAsyncData<FunctionReturnType<Query> | null>(
     key,
     async () => {
-      const argsValue = resolveArgs()
+      const argsValue = resolveEffectiveArgs()
       if (argsValue === 'skip') {
         return null
       }
 
       const token = options.token ?? ctx.ssrToken.value
+      // HttpOnly clients cannot send a JWT on HttpClient — keep the hydrated
+      // payload and let the live subscription own updates.
+      if (requireAuth && import.meta.client && !token) {
+        const nuxtApp = useNuxtApp()
+        const cached = nuxtApp.payload.data[toValue(key)]
+        return (cached ?? null) as FunctionReturnType<Query> | null
+      }
+
       const http = ctx.createHttpClient({ token })
       const result = await http.query(
         query,
@@ -118,11 +147,25 @@ export async function useConvexQuery<Query extends FunctionReference<'query'>>(
         // Re-run HttpClient snapshot when the SSR JWT cookie / token changes
         // (e.g. after sign-in with live:false, or Refresh).
         () => options.token ?? ctx.ssrToken.value,
+        // Re-run when auth confirms *and* a JWT is available for HttpClient
+        // (readable cookie / SSR). Avoids anonymous client refetches with HttpOnly.
+        () =>
+          requireAuth
+          && ctx.auth.isAuthenticated.value
+          && !!(options.token ?? ctx.ssrToken.value),
       ],
     },
   )
 
   const refresh = async () => {
+    // HttpOnly clients have no JWT for HttpClient — keep the payload / live.
+    if (
+      requireAuth
+      && import.meta.client
+      && !(options.token ?? ctx.ssrToken.value)
+    ) {
+      return
+    }
     await asyncData.refresh()
   }
 
@@ -131,13 +174,13 @@ export async function useConvexQuery<Query extends FunctionReference<'query'>>(
       data: asyncData.data as Ref<FunctionReturnType<Query> | null | undefined>,
       error: asyncData.error,
       pending: computed(() => {
-        if (resolveArgs() === 'skip') {
+        if (resolveEffectiveArgs() === 'skip') {
           return false
         }
         return asyncData.pending.value
       }),
       status: computed(() => {
-        if (resolveArgs() === 'skip') {
+        if (resolveEffectiveArgs() === 'skip') {
           return 'success'
         }
         return asyncData.status.value
@@ -183,14 +226,20 @@ export async function useConvexQuery<Query extends FunctionReference<'query'>>(
     )
   }
 
-  watch(() => resolveArgs(), subscribe, { immediate: true })
+  watch(
+    () => [resolveEffectiveArgs(), ctx.auth.isAuthenticated.value] as const,
+    ([argsValue]) => {
+      subscribe(argsValue)
+    },
+    { immediate: true },
+  )
   onScopeDispose(() => {
     cancel?.()
   })
 
   const overlay = computed(() =>
     resolveQueryOverlay<FunctionReturnType<Query>>({
-      skipped: resolveArgs() === 'skip',
+      skipped: resolveEffectiveArgs() === 'skip',
       liveReady: liveReady.value,
       liveData: liveData.value,
       liveError: liveError.value,

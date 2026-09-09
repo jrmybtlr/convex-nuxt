@@ -159,6 +159,74 @@ describe('skip does not call HttpClient.query', () => {
   })
 })
 
+describe('resolveAuthGatedArgs', () => {
+  it('passes through when authenticated option is off', async () => {
+    const { resolveAuthGatedArgs } = await import(
+      '../src/runtime/utils/authGate'
+    )
+    expect(
+      resolveAuthGatedArgs({}, { authenticated: false, isAuthenticated: false }),
+    ).toEqual({})
+    expect(
+      resolveAuthGatedArgs(
+        { id: '1' },
+        { authenticated: undefined, isAuthenticated: false },
+      ),
+    ).toEqual({ id: '1' })
+  })
+
+  it('skips when authenticated:true and Convex has not confirmed', async () => {
+    const { resolveAuthGatedArgs } = await import(
+      '../src/runtime/utils/authGate'
+    )
+    expect(
+      resolveAuthGatedArgs({}, { authenticated: true, isAuthenticated: false }),
+    ).toBe('skip')
+    expect(
+      resolveAuthGatedArgs(
+        { id: '1' },
+        { authenticated: true, isAuthenticated: false },
+      ),
+    ).toBe('skip')
+  })
+
+  it('fetches when authenticated:true and Convex confirmed (SSR stamp)', async () => {
+    const { resolveAuthGatedArgs } = await import(
+      '../src/runtime/utils/authGate'
+    )
+    expect(
+      resolveAuthGatedArgs({}, { authenticated: true, isAuthenticated: true }),
+    ).toEqual({})
+    expect(
+      resolveAuthGatedArgs(
+        { id: '1' },
+        { authenticated: true, isAuthenticated: true },
+      ),
+    ).toEqual({ id: '1' })
+  })
+
+  it('keeps caller skip over the auth gate', async () => {
+    const { resolveAuthGatedArgs } = await import(
+      '../src/runtime/utils/authGate'
+    )
+    expect(
+      resolveAuthGatedArgs('skip', {
+        authenticated: true,
+        isAuthenticated: true,
+      }),
+    ).toBe('skip')
+  })
+
+  it('keeps non-empty arg keys while internally auth-skipped', () => {
+    // Keys must come from raw args, not effective 'skip' (which would map to {}).
+    const raw = { id: 'task-1' }
+    expect(convexQueryKey(getTask, raw)).toBe(
+      'convex:tasks:get:{"id":"task-1"}',
+    )
+    expect(convexQueryKey(getTask, raw)).not.toBe(convexQueryKey(getTask, 'skip'))
+  })
+})
+
 describe('resolveConvexAuthState', () => {
   it('stays loading while the auth provider is resolving', () => {
     expect(

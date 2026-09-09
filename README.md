@@ -94,17 +94,22 @@ const { data, pending, error, refresh } = await useConvexQuery(
     server: true,      // optional — defaults to convex.server (true)
     lazy: false,
     live: true,
+    authenticated: true, // skip until Convex confirms; keep SSR payload
     token, // optional SSR JWT for this request only
   },
 )
 ```
 
 - Args accept `FunctionArgs`, `'skip'`, or a `MaybeRefOrGetter` of either.
-- Use `'skip'` until auth args are ready so private queries do not fire anonymously.
-  `'skip'` keeps the same payload key as empty args so SSR HTML survives the auth gate.
+- Use `authenticated: true` for private queries so live subscribe waits for
+  Convex confirmation. SSR still snapshots when the JWT cookie is present
+  (server stamps `isAuthenticated`); the client overlay keeps that payload
+  until `setAuth` confirms. Prefer this over manually wrapping args.
+- Use `'skip'` for unrelated gates (missing id, feature flags, etc.).
+  `'skip'` keeps the same payload key as empty args so SSR HTML survives.
 - Pass `token` for authenticated SSR. Never put JWTs in `runtimeConfig.public`.
 - When `convex.auth.cookie` / HttpOnly auth is set, `useConvexQuery` falls back to that cookie as `ssrToken`.
-- `hasSsrSession` / `showAuthedUi` keep an SSR-gated shell mounted; do not live-subscribe until `isAuthenticated`.
+- `hasSsrSession` / `showAuthedUi` keep an SSR-gated shell mounted; do not live-subscribe until `isAuthenticated` (or use `authenticated: true`).
 - Cache keys use `getFunctionName` + `convexToJson`, not `String(query)`, and stay reactive to args.
 - Set `convex.server: false` in `nuxt.config` to disable SSR snapshots globally.
 
@@ -133,7 +138,7 @@ convex: {
 <script setup lang="ts">
 const { error, pending, signIn, signOut, isAuthenticated, hasSsrSession, showAuthedUi } = useAuth()
 // Prefer showAuthedUi (or <Authenticated>) so SSR HTML does not flash the
-// sign-in form. Keep live queries on `isAuthenticated`.
+// sign-in form. Gate private queries with `{ authenticated: true }`.
 </script>
 
 <template>
@@ -196,7 +201,8 @@ const { isLoading, isAuthenticated, isRefreshing, hasSsrSession } = useConvexAut
 
 const { data } = await useConvexQuery(
   api.tasks.list,
-  computed(() => (isAuthenticated.value ? {} : 'skip')),
+  {},
+  { authenticated: true },
 )
 ```
 
@@ -338,6 +344,7 @@ pnpm run dev
 - [x] Live overlay (`live ?? payload`)
 - [x] Stable query keys (`getFunctionName` + `convexToJson`)
 - [x] `'skip'` + optional SSR `token`
+- [x] `authenticated: true` query option (auth-gated skip)
 - [x] `useConvexMutation` / `useConvexAction` / `useConvex`
 - [x] Nitro `fetchQuery` / `fetchMutation` / `fetchAction`
 - [x] Full auth helper (`useConvexAuth` + token refresh)

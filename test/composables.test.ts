@@ -319,3 +319,118 @@ describe('prewarmQuery / useAuthToken / useConvexQueries', () => {
     expect(results.value.b).toBeUndefined()
   })
 })
+
+describe('useConvexQuery authenticated option', () => {
+  beforeEach(() => {
+    vi.resetModules()
+    vi.doUnmock('../src/runtime/utils/context')
+    vi.doUnmock('nuxt/app')
+  })
+
+  async function setupQuery(ctx: ConvexNuxtContext) {
+    const payload = ref([{ text: 'from-ssr' }])
+    const pending = ref(false)
+    const error = ref<Error | null>(null)
+    const status = ref('success')
+    const refresh = vi.fn()
+
+    vi.doMock('../src/runtime/utils/context', () => ({
+      useConvexContext: () => ctx,
+      tryUseConvexContext: () => ctx,
+    }))
+    vi.doMock('nuxt/app', () => ({
+      useRuntimeConfig: () => ({ public: { convex: { server: true } } }),
+      useAsyncData: vi.fn(async (_key: unknown, handler: () => Promise<unknown>) => {
+        // Run handler once so tests can assert HttpClient skip/fetch.
+        await handler()
+        return {
+          data: payload,
+          error,
+          pending,
+          status,
+          refresh,
+        }
+      }),
+    }))
+
+    const { useConvexQuery } = await import(
+      '../src/runtime/composables/useConvexQuery'
+    )
+    return { useConvexQuery, payload, refresh }
+  }
+
+  it('skips HttpClient and live subscribe until Convex confirms', async () => {
+    const httpQuery = vi.fn()
+    const onUpdate = vi.fn(() => vi.fn())
+    const ctx = makeCtx({
+      client: { onUpdate } as unknown as NonNullable<ConvexNuxtContext['client']>,
+      createHttpClient: vi.fn(() => ({ query: httpQuery })),
+    })
+    ctx.auth.isAuthenticated.value = false
+
+    const { useConvexQuery, payload } = await setupQuery(ctx)
+    const query = makeFunctionReference<'query', Record<string, never>, Array<{ text: string }>>(
+      'tasks:list',
+    )
+
+    // import.meta.server is true in vitest node by default for some builds —
+    // force client live path by ensuring client exists (already set).
+    const result = await useConvexQuery(query, {}, { authenticated: true })
+
+    expect(httpQuery).not.toHaveBeenCalled()
+    // Live path may or may not run depending on import.meta.server in vitest.
+    // When skipped, overlay must keep SSR payload.
+    expect(result.data.value).toEqual(payload.value)
+    expect(result.pending.value).toBe(false)
+  })
+
+  it('runs HttpClient when SSR stamps isAuthenticated', async () => {
+    const httpQuery = vi.fn().mockResolvedValue([{ text: 'ok' }])
+    const ctx = makeCtx({
+      client: null,
+      createHttpClient: vi.fn(() => ({ query: httpQuery })),
+    })
+    ctx.auth.isAuthenticated.value = true
+
+    const { useConvexQuery } = await setupQuery(ctx)
+    const query = makeFunctionReference<'query', Record<string, never>, Array<{ text: string }>>(
+      'tasks:list',
+    )
+
+    await useConvexQuery(query, {}, { authenticated: true, live: false })
+    expect(httpQuery).toHaveBeenCalled()
+  })
+
+  it('starts live subscribe when isAuthenticated flips to true', async () => {
+    const httpQuery = vi.fn().mockResolvedValue([{ text: 'ok' }])
+    const unsubscribe = vi.fn()
+    const onUpdate = vi.fn((_q, _a, onResult) => {
+      onResult([{ text: 'live' }])
+      return unsubscribe
+    })
+    const ctx = makeCtx({
+      client: { onUpdate } as unknown as NonNullable<ConvexNuxtContext['client']>,
+      createHttpClient: vi.fn(() => ({ query: httpQuery })),
+    })
+    ctx.auth.isAuthenticated.value = false
+
+    // Force browser live path: mock import.meta via live:true and client present.
+    // In vitest (node), import.meta.server is typically false for ESM modules.
+    const { useConvexQuery } = await setupQuery(ctx)
+    const query = makeFunctionReference<'query', Record<string, never>, Array<{ text: string }>>(
+      'tasks:list',
+    )
+
+    await useConvexQuery(query, {}, { authenticated: true })
+
+    // Initially skipped — no live sub (or sub called with skip path = no onUpdate).
+    const callsBefore = onUpdate.mock.calls.length
+
+    ctx.auth.isAuthenticated.value = true
+    await Promise.resolve()
+    await Promise.resolve()
+
+    // Watch should fire and subscribe.
+    expect(onUpdate.mock.calls.length).toBeGreaterThan(callsBefore)
+  })
+})

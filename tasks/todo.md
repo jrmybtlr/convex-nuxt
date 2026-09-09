@@ -1,20 +1,26 @@
-# Playground Tailwind via Vite
+# Auth-gated query option
 
 ## Plan
 
-- [x] Install `tailwindcss` + `@tailwindcss/vite` in playground
-- [x] Register the Vite plugin and global CSS in `nuxt.config.ts`
-- [x] Add `app/assets/css/main.css` with `@import "tailwindcss"`
-- [x] Restyle `app.vue` as a minimal layout shell
-- [x] Replace inline styles on playground pages/components with simple utilities
-- [x] Verify in the browser (nav + Live / Server / Extras)
+- [x] Add `authenticated?: boolean` to `useConvexQuery` and `useConvexPaginatedQuery`
+- [x] Split raw vs effective args; keys from raw; watch `isAuthenticated` for live
+- [x] Switch TasksDemo + extras to `{ authenticated: true }`
+- [x] Update README
+- [x] Unit tests + playground verify
 
 ## Review
 
-Tailwind v4 is wired through `@tailwindcss/vite` in `playground/nuxt.config.ts` (no PostCSS / Nuxt Tailwind module). The app shell is a centered `max-w-xl` column with muted nav and zinc borders. Inline styles on Live, Server, Extras, AuthForm, and TasksDemo were replaced with the same small utility set.
+**Plugin:** `{ authenticated: true }` skips HttpClient/live until Convex confirms
+`isAuthenticated`. SSR still snapshots when the server stamps auth from the JWT
+cookie. Overlay keeps the payload. Keys stay on raw args so auth-skip does not
+lose the SSR slot. HttpOnly clients do not anonymous-refetch via HttpClient
+(preserve payload; live subscribe owns the browser after `setAuth`).
 
-Verified at `http://localhost:3000/`:
-- Live: sign-in / create-account toggle
-- Server: health JSON, GET list error, shout form
-- Extras: unsigned-in empty state
-- Computed styles confirm Tailwind (`flex` nav, `max-w-xl` = 576px, `text-xl` = 20px)
+**Playground:** TasksDemo / extras use `{ authenticated: true }` instead of a
+manual skip computed. Also fixed `listPaginated` returns validator (`pageStatus`
+/ `splitCursor`) so pagination SSR works on current Convex.
+
+**Verified:**
+- Unit + nuxt tests pass (81)
+- Live `/`: SSR payload includes tasks; hydrates signed-in without loading flash
+- Extras: `live: false` snapshot + paginated list both show 2 items (`Exhausted · 2 items`)

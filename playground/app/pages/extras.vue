@@ -3,14 +3,15 @@ import { api } from '~~/convex/_generated/api'
 
 const { isAuthenticated, showAuthedUi } = useAuth()
 
-const queryArgs = computed(() => (isAuthenticated.value ? {} : 'skip' as const))
-
 // Snapshot-only (no live WebSocket overlay) — useful to compare with Live.
 const {
   data: snapshot,
   pending: snapshotPending,
   refresh,
-} = await useConvexQuery(api.tasks.list, queryArgs, { live: false })
+} = await useConvexQuery(api.tasks.list, {}, {
+  live: false,
+  authenticated: true,
+})
 
 const {
   results,
@@ -19,8 +20,8 @@ const {
   loadMore,
 } = await useConvexPaginatedQuery(
   api.tasks.listPaginated,
-  computed(() => (isAuthenticated.value ? {} : 'skip' as const)),
-  { initialNumItems: 5 },
+  {},
+  { initialNumItems: 5, authenticated: true },
 )
 
 const { run: shout, pending: shouting } = useConvexAction(api.tasks.shout)

@@ -10,56 +10,35 @@ const {
   signOut,
 } = useAuth()
 
-// Live subscribe only after Convex confirms. SSR stamps isAuthenticated from
-// the cookie so the HttpClient snapshot still runs; client uses 'skip' until
-// setAuth confirms while the overlay keeps the payload visible.
-const queryArgs = computed(() => {
-  if (isAuthenticated.value) {
-    return {}
-  }
-  return 'skip' as const
-})
-
+// `authenticated: true` skips live subscribe until Convex confirms; SSR still
+// snapshots via the cookie-stamped isAuthenticated, and the overlay keeps the
+// payload visible meanwhile.
 const { data, pending, error, refresh } = await useConvexQuery(
   api.tasks.list,
-  queryArgs,
+  {},
+  { authenticated: true },
 )
 
-const { mutate: createTask, pending: creating } = useConvexMutation(
-  api.tasks.create,
-)
-const { mutate: toggleTask, pending: toggling } = useConvexMutation(
-  api.tasks.toggle,
-)
-const { mutate: removeTask, pending: removing } = useConvexMutation(
-  api.tasks.remove,
-)
+const { mutate: createTask, pending: creating } = useConvexMutation(api.tasks.create)
+const { mutate: toggleTask } = useConvexMutation(api.tasks.toggle)
+const { mutate: removeTask } = useConvexMutation(api.tasks.remove)
 
 const draft = ref('')
-const busy = computed(
-  () => creating.value || toggling.value || removing.value,
-)
 
 async function addTask() {
   const text = draft.value.trim()
-  if (!text || !isAuthenticated.value) {
-    return
-  }
+  if (!text || !isAuthenticated.value) return
   await createTask({ text })
   draft.value = ''
 }
 
 async function onToggle(taskId: Id<'tasks'>) {
-  if (!isAuthenticated.value) {
-    return
-  }
+  if (!isAuthenticated.value) return
   await toggleTask({ taskId })
 }
 
 async function onRemove(taskId: Id<'tasks'>) {
-  if (!isAuthenticated.value) {
-    return
-  }
+  if (!isAuthenticated.value) return
   await removeTask({ taskId })
 }
 </script>
@@ -94,12 +73,12 @@ async function onRemove(taskId: Id<'tasks'>) {
           v-model="draft"
           placeholder="New task"
           class="min-w-0 flex-1 rounded-md border border-zinc-200 px-3 py-1.5 text-sm outline-none focus:border-zinc-400 disabled:opacity-50"
-          :disabled="!isAuthenticated || busy"
+          :disabled="!isAuthenticated"
         >
         <button
           type="submit"
           class="rounded-md border border-zinc-200 px-3 py-1.5 text-sm disabled:opacity-50"
-          :disabled="!isAuthenticated || busy"
+          :disabled="!isAuthenticated"
         >
           {{ creating ? 'Adding…' : 'Add' }}
         </button>
@@ -138,7 +117,7 @@ async function onRemove(taskId: Id<'tasks'>) {
           <input
             type="checkbox"
             :checked="task.completed"
-            :disabled="!isAuthenticated || busy"
+            :disabled="!isAuthenticated"
             @change="onToggle(task._id)"
           >
           <span
@@ -150,7 +129,7 @@ async function onRemove(taskId: Id<'tasks'>) {
           <button
             type="button"
             class="text-zinc-400 hover:text-zinc-900 disabled:opacity-50"
-            :disabled="!isAuthenticated || busy"
+            :disabled="!isAuthenticated"
             @click="onRemove(task._id)"
           >
             Delete
