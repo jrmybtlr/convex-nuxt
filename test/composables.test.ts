@@ -213,3 +213,109 @@ describe('useConvexContext', () => {
     expect(() => useConvexContext()).toThrow(/plugin did not start/)
   })
 })
+
+describe('prewarmQuery / useAuthToken / useConvexQueries', () => {
+  beforeEach(() => {
+    vi.resetModules()
+    vi.doUnmock('../src/runtime/utils/context')
+  })
+
+  it('prewarmQuery subscribes via onUpdate and returns unsubscribe', async () => {
+    const unsubscribe = vi.fn()
+    const onUpdate = vi.fn(() => unsubscribe)
+    const client = { onUpdate } as unknown as NonNullable<ConvexNuxtContext['client']>
+    const ctx = makeCtx({ client })
+    vi.doMock('../src/runtime/utils/context', () => ({
+      useConvexContext: () => ctx,
+      tryUseConvexContext: () => ctx,
+    }))
+
+    const { prewarmQuery } = await import(
+      '../src/runtime/composables/prewarmQuery'
+    )
+    const query = makeFunctionReference<'query', Record<string, never>, string[]>(
+      'tasks:list',
+    )
+    const stop = prewarmQuery(query, {})
+    expect(onUpdate).toHaveBeenCalled()
+    stop()
+    expect(unsubscribe).toHaveBeenCalled()
+  })
+
+  it('useAuthToken returns null without context', async () => {
+    vi.doMock('../src/runtime/utils/context', () => ({
+      tryUseConvexContext: () => null,
+      useConvexContext: () => {
+        throw new Error('no ctx')
+      },
+    }))
+    const { useAuthToken } = await import(
+      '../src/runtime/composables/useAuthToken'
+    )
+    expect(useAuthToken().value).toBeNull()
+  })
+
+  it('useAuthToken reads ConvexClient.getAuth()', async () => {
+    const client = {
+      getAuth: vi.fn(() => ({ token: 'jwt-1', decoded: {} })),
+    } as unknown as NonNullable<ConvexNuxtContext['client']>
+    const ctx = makeCtx({ client })
+    ctx.auth.isAuthenticated.value = true
+    vi.doMock('../src/runtime/utils/context', () => ({
+      tryUseConvexContext: () => ctx,
+      useConvexContext: () => ctx,
+    }))
+    vi.doMock('nuxt/app', () => ({
+      useRuntimeConfig: () => ({ public: { convex: {} } }),
+      useCookie: () => ref(undefined),
+      navigateTo: vi.fn(),
+    }))
+    vi.doMock('../src/runtime/composables/useConvexAuth', () => ({
+      useConvexAuth: () => ({
+        isLoading: computed(() => false),
+        isAuthenticated: computed(() => true),
+        isRefreshing: computed(() => false),
+        hasSsrSession: computed(() => false),
+        showAuthedUi: computed(() => true),
+      }),
+    }))
+
+    const { useAuthToken } = await import(
+      '../src/runtime/composables/useAuthToken'
+    )
+    const token = useAuthToken()
+    await Promise.resolve()
+    expect(token.value).toBe('jwt-1')
+  })
+
+  it('useConvexQueries subscribes per key and skips', async () => {
+    const unsubs: Array<ReturnType<typeof vi.fn>> = []
+    const onUpdate = vi.fn((_q, _a, onResult) => {
+      const unsub = vi.fn()
+      unsubs.push(unsub)
+      onResult(['ok'])
+      return unsub
+    })
+    const client = { onUpdate } as unknown as NonNullable<ConvexNuxtContext['client']>
+    const ctx = makeCtx({ client })
+    vi.doMock('../src/runtime/utils/context', () => ({
+      useConvexContext: () => ctx,
+      tryUseConvexContext: () => ctx,
+    }))
+
+    const { useConvexQueries } = await import(
+      '../src/runtime/composables/useConvexQueries'
+    )
+    const query = makeFunctionReference<'query', { id: string }, string[]>(
+      'tasks:get',
+    )
+    const request = ref({
+      a: { query, args: { id: '1' } },
+      b: 'skip' as const,
+    })
+    const results = useConvexQueries(request)
+    expect(onUpdate).toHaveBeenCalledTimes(1)
+    expect(results.value.a).toEqual(['ok'])
+    expect(results.value.b).toBeUndefined()
+  })
+})

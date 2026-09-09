@@ -65,11 +65,34 @@ export type UseConvexPaginatedQueryReturn<Query extends PaginatedQueryReference>
   error: Ref<Error | null>
 }
 
+/** Runtime shape from `ConvexClient.onPaginatedUpdate_experimental`. */
+type LivePaginatedResult<Item> = {
+  results: Item[]
+  status: 'LoadingFirstPage' | 'CanLoadMore' | 'LoadingMore' | 'Exhausted'
+  loadMore: (numItems: number) => boolean
+}
+
+function mapLiveStatus(
+  status: LivePaginatedResult<unknown>['status'],
+): PaginationStatus {
+  switch (status) {
+    case 'LoadingFirstPage':
+      return 'LoadingFirstPage'
+    case 'LoadingMore':
+      return 'LoadingMore'
+    case 'Exhausted':
+      return 'Exhausted'
+    case 'CanLoadMore':
+      return 'CanLoadMore'
+  }
+}
+
 /**
- * Paginated Convex query with SSR for the first page and client `loadMore`.
+ * Paginated Convex query with SSR for the first page and live multi-page updates.
  *
- * Later pages are fetched one-shot on the browser (not SSR). The first page
- * keeps a live `onUpdate` subscription so inserts/edits appear automatically.
+ * On the browser this uses `ConvexClient.onPaginatedUpdate_experimental` so
+ * every loaded page stays reactive (React `usePaginatedQuery` parity). The SSR
+ * snapshot hydrates the first page until the live subscription is ready.
  */
 export async function useConvexPaginatedQuery<
   Query extends PaginatedQueryReference,
@@ -121,7 +144,6 @@ export async function useConvexPaginatedQuery<
       }
       const token = options.token ?? ctx.ssrToken.value
       const http = ctx.createHttpClient({ token })
-      // PaginatedQueryReference generics confuse OptionalRestArgs; assert once.
       const result = await http.query(
         query as never,
         pageArgs as never,
@@ -140,77 +162,41 @@ export async function useConvexPaginatedQuery<
   )
 
   type Item = PaginatedQueryItem<Query>
-  const extraPages = shallowRef<Array<PaginationResult<Item>>>([])
-  const loadingMore = ref(false)
-  const liveFirst = shallowRef<PaginationResult<Item> | null>(null)
+  const live = shallowRef<LivePaginatedResult<Item> | null>(null)
   const liveReady = ref(false)
   const error = ref<Error | null>(null)
-
-  const firstPage = computed((): PaginationResult<Item> | null => {
-    if (liveReady.value && liveFirst.value) {
-      return liveFirst.value
-    }
-    return asyncData.data.value ?? null
-  })
+  /** Latest `loadMore` from the experimental paginated subscription. */
+  const liveLoadMore = shallowRef<((numItems: number) => boolean) | null>(null)
 
   const results = computed((): Item[] => {
-    const first = firstPage.value
-    if (!first) {
-      return []
+    if (liveReady.value && live.value) {
+      return live.value.results
     }
-    const pages = [first, ...extraPages.value]
-    return pages.flatMap(p => p.page)
-  })
-
-  const continueCursor = computed(() => {
-    const pages = firstPage.value
-      ? [firstPage.value, ...extraPages.value]
-      : []
-    if (pages.length === 0) {
-      return null
-    }
-    return pages[pages.length - 1]!.continueCursor
-  })
-
-  const isDone = computed(() => {
-    const pages = firstPage.value
-      ? [firstPage.value, ...extraPages.value]
-      : []
-    if (pages.length === 0) {
-      return false
-    }
-    return pages[pages.length - 1]!.isDone
+    return asyncData.data.value?.page ?? []
   })
 
   const status = computed((): PaginationStatus => {
     if (resolveArgs() === 'skip') {
       return 'Exhausted'
     }
-    if (!firstPage.value && (asyncData.pending.value || !liveReady.value)) {
+    if (liveReady.value && live.value) {
+      return mapLiveStatus(live.value.status)
+    }
+    if (asyncData.pending.value || (import.meta.client && !liveReady.value)) {
+      // Prefer SSR page while the live subscription catches up.
+      if (asyncData.data.value) {
+        return asyncData.data.value.isDone ? 'Exhausted' : 'CanLoadMore'
+      }
       return 'LoadingFirstPage'
     }
-    if (loadingMore.value) {
-      return 'LoadingMore'
+    if (asyncData.data.value) {
+      return asyncData.data.value.isDone ? 'Exhausted' : 'CanLoadMore'
     }
-    if (isDone.value) {
-      return 'Exhausted'
-    }
-    return 'CanLoadMore'
+    return 'LoadingFirstPage'
   })
 
   const isLoading = computed(
     () => status.value === 'LoadingFirstPage' || status.value === 'LoadingMore',
-  )
-
-  // Reset extra pages when the query identity changes.
-  watch(
-    () => convexQueryKey(query, resolveArgs() === 'skip' ? {} : resolveArgs()),
-    () => {
-      extraPages.value = []
-      liveReady.value = false
-      liveFirst.value = null
-      error.value = null
-    },
   )
 
   if (import.meta.client && ctx.client) {
@@ -221,22 +207,29 @@ export async function useConvexPaginatedQuery<
       cancel?.()
       cancel = undefined
       liveReady.value = false
-      liveFirst.value = null
+      live.value = null
+      liveLoadMore.value = null
+      error.value = null
 
-      const pageArgs = firstPageArgs()
-      if (pageArgs === 'skip') {
+      const base = resolveArgs()
+      if (base === 'skip') {
+        liveReady.value = true
         return
       }
 
-      cancel = client.onUpdate(
-        query,
-        pageArgs,
+      // Experimental paginated subscription keeps every loaded page live.
+      // Callback is typed as PaginationResult in convex but runtime value is
+      // PaginatedQueryResult `{ results, status, loadMore }`.
+      cancel = client.onPaginatedUpdate_experimental(
+        query as never,
+        base as never,
+        { initialNumItems: options.initialNumItems },
         (result) => {
-          liveFirst.value = result as PaginationResult<Item>
+          const page = result as unknown as LivePaginatedResult<Item>
+          live.value = page
+          liveLoadMore.value = page.loadMore
           liveReady.value = true
           error.value = null
-          // First-page live update invalidates loaded tail pages.
-          extraPages.value = []
         },
         (err) => {
           error.value = err
@@ -245,9 +238,11 @@ export async function useConvexPaginatedQuery<
       )
     }
 
-    watch(() => [toValue(args), options.initialNumItems], subscribe, {
-      immediate: true,
-    })
+    watch(
+      () => [toValue(args), options.initialNumItems] as const,
+      subscribe,
+      { immediate: true },
+    )
     onScopeDispose(() => {
       cancel?.()
     })
@@ -257,44 +252,14 @@ export async function useConvexPaginatedQuery<
     if (import.meta.server || !ctx.client) {
       return
     }
-    if (status.value !== 'CanLoadMore' || loadingMore.value) {
+    if (status.value !== 'CanLoadMore') {
       return
     }
-    const cursor = continueCursor.value
-    if (cursor === null && firstPage.value && !firstPage.value.isDone) {
-      // continueCursor null + not done is valid for first page end state
-    }
-    if (isDone.value) {
+    const fn = liveLoadMore.value
+    if (!fn) {
       return
     }
-
-    const base = resolveArgs()
-    if (base === 'skip') {
-      return
-    }
-
-    loadingMore.value = true
-    error.value = null
-    const pageArgs = {
-      ...(base as object),
-      paginationOpts: {
-        numItems,
-        cursor: continueCursor.value,
-      },
-    } as FunctionArgs<Query>
-
-    void ctx.client
-      .query(query, pageArgs)
-      .then((result) => {
-        const page = result as PaginationResult<Item>
-        extraPages.value = [...extraPages.value, page]
-      })
-      .catch((cause: unknown) => {
-        error.value = cause instanceof Error ? cause : new Error(String(cause))
-      })
-      .finally(() => {
-        loadingMore.value = false
-      })
+    fn(numItems)
   }
 
   return {
