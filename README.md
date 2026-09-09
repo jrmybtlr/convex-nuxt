@@ -14,6 +14,8 @@ export default defineNuxtConfig({
   modules: ['@convex/nuxt'],
   convex: {
     url: process.env.NUXT_PUBLIC_CONVEX_URL,
+    // Optional: forwarded to `new ConvexClient(url, client)`
+    // client: { unsavedChangesWarning: false },
   },
 })
 ```
@@ -56,15 +58,20 @@ Auto-imported:
 | API | Role |
 |---|---|
 | `useConvexQuery` | SSR HttpClient + payload + live overlay |
-| `useConvexPaginatedQuery` | SSR first page + client `loadMore` + live first page |
+| `useConvexQueries` | dynamic multi-query map (React `useQueries`) |
+| `useConvexPaginatedQuery` | SSR first page + live multi-page + `loadMore` |
 | `useConvexMutation` | browser `ConvexClient.mutation` (+ optional `optimisticUpdate`) |
 | `useConvexAction` | browser `ConvexClient.action` |
 | `useConvex` | browser `ConvexClient` escape hatch |
+| `prewarmQuery` | warm a query subscription before mount |
 | `useConvexAuth` | provider-agnostic auth state + `setAuth` + `showAuthedUi` |
-| `useConvexGate` | `{ showAuthedUi, showLoading, showSignedOut }` |
+| `useAuthToken` | current JWT for HTTP calls |
+| `useConvexGate` | `{ showAuthedUi, showLoading, showSignedOut, showRefreshing }` |
 | `useConvexConnectionState` | reactive WebSocket `ConnectionState` |
 | `useAuth` / `signIn` / `signOut` | first-party Convex Auth (when `provider: 'convex-auth'`) |
-| `Authenticated` / `Unauthenticated` / `AuthLoading` | auth layout components |
+| `Authenticated` / `Unauthenticated` / `AuthLoading` / `AuthRefreshing` | auth layout components |
+| `insertAtTop` / `insertAtBottomIfLoaded` / `insertAtPosition` / `optimisticallyUpdateValueInPaginatedQuery` | paginated optimistic helpers |
+| `requireConvexAuthMiddleware` | Nuxt route middleware redirect helper |
 
 Nitro / server routes (auto-imported in `server/`):
 
@@ -230,8 +237,35 @@ const { results, status, isLoading, loadMore } = await useConvexPaginatedQuery(
 )
 ```
 
-The first page is SSR'd via HttpClient and kept live with `onUpdate`.
-`loadMore` fetches additional pages one-shot on the browser.
+The first page is SSR'd via HttpClient. On the browser,
+`onPaginatedUpdate_experimental` keeps **every loaded page** live (React
+`usePaginatedQuery` parity). `loadMore` asks the paginated client for the next
+page.
+
+### Multi-query
+
+```ts
+const results = useConvexQueries(() => ({
+  inbox: { query: api.messages.list, args: { channel: 'inbox' } },
+  later: selectedId.value
+    ? { query: api.messages.get, args: { id: selectedId.value } }
+    : 'skip',
+}))
+```
+
+### Paginated optimistic updates
+
+```ts
+const { mutate } = useConvexMutation(api.tasks.create, {
+  optimisticUpdate: (localStore, args) => {
+    insertAtTop({
+      paginatedQuery: api.tasks.listPaginated,
+      localQueryStore: localStore,
+      item: { _id: 'tmp', text: args.text, completed: false },
+    })
+  },
+})
+```
 
 ### Server routes
 
@@ -319,6 +353,11 @@ pnpm run dev
 - [x] HttpOnly dual-cookie SSR (Next.js parity)
 - [x] Connection state + Nuxt DevTools tab
 - [x] Optional live-deployment e2e scaffold (`test/e2e`)
+- [x] Live multi-page pagination (`onPaginatedUpdate_experimental`)
+- [x] `useConvexQueries` (React `useQueries`)
+- [x] Paginated optimistic helpers
+- [x] `AuthRefreshing` + `useAuthToken` + `prewarmQuery`
+- [x] `ConvexClient` options passthrough + auth middleware helper
 - [ ] Reactive arg identity edge cases beyond `watch`
 - [ ] Broader Playwright suite against a real Convex deployment
 

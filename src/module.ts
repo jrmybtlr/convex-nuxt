@@ -67,6 +67,11 @@ export interface ModuleOptions {
    */
   server?: boolean
   /**
+   * Options forwarded to `new ConvexClient(url, client)`.
+   * Useful for `unsavedChangesWarning`, `verbose`, custom WebSocket, etc.
+   */
+  client?: import('convex/browser').ConvexClientOptions
+  /**
    * Optional auth: SSR cookie and/or first-party Convex Auth provider.
    */
   auth?: ModuleAuthOptions
@@ -82,6 +87,7 @@ export interface ModulePublicRuntimeConfig {
   convex: {
     url?: string
     server?: boolean
+    client?: import('convex/browser').ConvexClientOptions
     auth?: ModuleAuthOptions
   }
 }
@@ -105,6 +111,10 @@ export type {
   UseConvexPaginatedQueryReturn,
   PaginationStatus,
 } from './runtime/composables/useConvexPaginatedQuery'
+export type {
+  ConvexQueriesRequest,
+  ConvexQueriesResult,
+} from './runtime/composables/useConvexQueries'
 export type { ConvexFetchOptions } from './runtime/server/fetch'
 export type { ConvexNuxtContext, ConvexAuthContext } from './runtime/utils/context'
 export type { ConnectionState } from './runtime/composables/useConvexConnectionState'
@@ -139,6 +149,7 @@ export default defineNuxtModule<ModuleOptions>({
     nuxt.options.runtimeConfig.public.convex = defu(existing ?? {}, {
       url: options.url,
       server: options.server,
+      client: options.client,
       auth,
     })
 
@@ -191,6 +202,10 @@ export default defineNuxtModule<ModuleOptions>({
         from: resolver.resolve('./runtime/composables/useConvexQuery'),
       },
       {
+        name: 'useConvexQueries',
+        from: resolver.resolve('./runtime/composables/useConvexQueries'),
+      },
+      {
         name: 'useConvexPaginatedQuery',
         from: resolver.resolve('./runtime/composables/useConvexPaginatedQuery'),
       },
@@ -205,6 +220,34 @@ export default defineNuxtModule<ModuleOptions>({
       {
         name: 'useConvexConnectionState',
         from: resolver.resolve('./runtime/composables/useConvexConnectionState'),
+      },
+      {
+        name: 'useAuthToken',
+        from: resolver.resolve('./runtime/composables/useAuthToken'),
+      },
+      {
+        name: 'requireConvexAuthMiddleware',
+        from: resolver.resolve('./runtime/composables/useAuthToken'),
+      },
+      {
+        name: 'prewarmQuery',
+        from: resolver.resolve('./runtime/composables/prewarmQuery'),
+      },
+      {
+        name: 'optimisticallyUpdateValueInPaginatedQuery',
+        from: resolver.resolve('./runtime/utils/paginatedOptimistic'),
+      },
+      {
+        name: 'insertAtTop',
+        from: resolver.resolve('./runtime/utils/paginatedOptimistic'),
+      },
+      {
+        name: 'insertAtBottomIfLoaded',
+        from: resolver.resolve('./runtime/utils/paginatedOptimistic'),
+      },
+      {
+        name: 'insertAtPosition',
+        from: resolver.resolve('./runtime/utils/paginatedOptimistic'),
       },
       ...(useConvexAuthProvider
         ? [
@@ -287,6 +330,7 @@ declare module '@nuxt/schema' {
     convex: {
       url?: string
       server?: boolean
+      client?: import('convex/browser').ConvexClientOptions
       auth?: {
         provider?: 'convex-auth'
         cookie?: string

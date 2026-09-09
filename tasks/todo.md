@@ -1,31 +1,29 @@
-# Ranked improvements for @convex/nuxt
+# Close gaps vs convex/react
 
 ## Plan
 
-- [x] P0.1 Auth hydration: `showAuthedUi`, matching SSR/client first paint, fix TasksDemo
-- [x] P0.2 Reactive `useAsyncData` keys (+ skip key stability tests)
-- [x] P0.3 Watch `ssrToken` / `options.token` on HttpClient path
-- [x] P1 Nitro `requireConvexAuth` / `getConvexToken`
-- [x] P1 Auth layout helpers (`Authenticated` / `Unauthenticated` / `AuthLoading`)
-- [x] P1 Optimistic updates on `useConvexMutation`
-- [x] P1 Playground demos (action, live:false, auth gate)
-- [x] P2 `useConvexPaginatedQuery`
-- [x] P2 HttpOnly dual-cookie auth via Nitro
-- [x] P2 Connection state + DevTools + real-deployment e2e scaffold
+- [x] P0 Fix `useConvexPaginatedQuery` live semantics via `onPaginatedUpdate_experimental`
+- [x] P1 Add `useConvexQueries`
+- [x] P1 Add paginated optimistic helpers (without importing `convex/react`)
+- [x] P2 Add `AuthRefreshing` + `useConvexGate.showRefreshing`
+- [x] P2 Add `useAuthToken`
+- [x] P2 Pass `ConvexClientOptions` through module config / plugin
+- [x] P3 Add `prewarmQuery`
+- [x] P3 Add `requireConvexAuthMiddleware`
+- [x] Tests + README + verify `pnpm test` / typecheck / build
 
 ## Review
 
 ### Done
 
-- **Hydration:** `showAuthedUi` on `useConvexAuth` / `useAuth`; server still stamps `isAuthenticated` for SSR queryArgs; client does not (avoids hydrate mismatch). Playground uses `<Authenticated>` / `showAuthedUi`; live queries still gate on `isAuthenticated`.
-- **Keys / token watch:** `useConvexQuery` passes a computed key into `useAsyncData` and watches `ssrToken` / `options.token`.
-- **Nitro:** `requireConvexAuth` / `getConvexToken`; playground tasks routes use them; `/api/shout` demos `fetchAction`.
-- **DX:** `Authenticated` / `Unauthenticated` / `AuthLoading`, `useConvexGate`, `optimisticUpdate` on mutations, `useConvexPaginatedQuery`, `useConvexConnectionState`, DevTools iframe tab + `window.__CONVEX_NUXT__`.
-- **HttpOnly:** `auth.httpOnly: true` → Nitro `/api/convex/auth/session`, HttpOnly JWT/refresh + readable presence cookie. Playground opts in.
-- **E2E scaffold:** `test/e2e/` skipped unless `E2E_CONVEX=1`.
+- **Pagination:** Client uses `ConvexClient.onPaginatedUpdate_experimental` so all loaded pages stay live; SSR still hydrates the first page. Public status strings unchanged (`LoadingFirstPage` / `CanLoadMore` / `LoadingMore` / `Exhausted`).
+- **Multi-query:** `useConvexQueries` mirrors React `useQueries` with `'skip'` and reactive maps.
+- **Optimistic helpers:** `insertAtTop`, `insertAtBottomIfLoaded`, `insertAtPosition`, `optimisticallyUpdateValueInPaginatedQuery` ported against `OptimisticLocalStore` (no React import).
+- **Auth:** `AuthRefreshing` component, `useAuthToken`, middleware helper `requireConvexAuthMiddleware`.
+- **Client options:** `convex.client` → `new ConvexClient(url, options)`.
+- **Prewarm:** `prewarmQuery(query, args)` starts an `onUpdate` subscription.
 
 ### Verify
 
-- `pnpm test` — 66 passed, 3 skipped
+- `pnpm test` — 73 passed, 3 skipped
 - `pnpm typecheck` / `pnpm build` — green
-- Live browser against playground not run in this session (needs `pnpm run dev` + `dev:backend`)
