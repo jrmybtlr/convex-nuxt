@@ -5,3 +5,21 @@
     @apply rounded bg-zinc-100 px-1 py-px font-mono text-[0.85em];
   }
 }
+
+.toast-enter-active {
+  transition:
+    transform 0.4s cubic-bezier(0.16, 1, 0.3, 1),
+    opacity 0.25s ease-out;
+}
+
+.toast-leave-active {
+  transition:
+    transform 0.2s ease-in,
+    opacity 0.2s ease-in;
+}
+
+.toast-enter-from,
+.toast-leave-to {
+  opacity: 0;
+  transform: translateY(16px) scale(0.96);
+}

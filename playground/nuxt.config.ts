@@ -13,6 +13,7 @@ export default defineNuxtConfig({
     auth: {
       provider: 'convex-auth',
       httpOnly: true,
+      cookie: 'convex_jwt',
     },
   },
 })

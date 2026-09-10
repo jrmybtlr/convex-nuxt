@@ -6,6 +6,32 @@ const config = useRuntimeConfig()
 const url = computed(
   () => (config.public.convex as { url?: string } | undefined)?.url,
 )
+
+const { showToast } = useToast()
+const shoutDraft = ref('hello')
+const shouting = ref(false)
+
+async function runShout() {
+  const text = shoutDraft.value.trim()
+  if (!text || shouting.value) {
+    return
+  }
+  shouting.value = true
+  try {
+    const result = await $fetch<{ shouted: string }>('/api/shout', {
+      method: 'POST',
+      body: { text },
+    })
+    showToast(result.shouted)
+  }
+  catch (cause: unknown) {
+    const err = cause as { statusMessage?: string, message?: string }
+    showToast(err.statusMessage ?? err.message ?? 'Shout failed')
+  }
+  finally {
+    shouting.value = false
+  }
+}
 </script>
 
 <template>
@@ -41,6 +67,24 @@ const url = computed(
       <Unauthenticated>
         <AuthForm />
       </Unauthenticated>
+
+      <form
+        class="mt-8 flex flex-wrap gap-2 border-t border-zinc-100 pt-6"
+        @submit.prevent="runShout"
+      >
+        <input
+          v-model="shoutDraft"
+          placeholder="Text to shout"
+          class="min-w-0 flex-1 rounded-md border border-zinc-200 px-3 py-1.5 text-sm outline-none focus:border-zinc-400"
+        >
+        <button
+          type="submit"
+          class="rounded-md border border-zinc-200 px-3 py-1.5 text-sm disabled:opacity-50"
+          :disabled="shouting"
+        >
+          {{ shouting ? '…' : 'Shout' }}
+        </button>
+      </form>
     </template>
   </main>
 </template>

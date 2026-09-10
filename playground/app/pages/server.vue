@@ -13,6 +13,7 @@ const tasksError = ref<string | null>(null)
 const tasksPending = ref(false)
 const draft = ref('')
 const creating = ref(false)
+const { showToast } = useToast()
 const shoutDraft = ref('hello')
 const shouting = ref(false)
 const shoutResult = ref<{ shouted: string } | null>(null)
@@ -91,11 +92,14 @@ async function runShout() {
       method: 'POST',
       body: { text },
     })
+    showToast(shoutResult.value.shouted)
   }
   catch (cause: unknown) {
     shoutResult.value = null
     const err = cause as { statusMessage?: string, message?: string }
-    tasksError.value = err?.statusMessage ?? err?.message ?? String(cause)
+    const message = err?.statusMessage ?? err?.message ?? String(cause)
+    tasksError.value = message
+    showToast(message)
   }
   finally {
     shouting.value = false

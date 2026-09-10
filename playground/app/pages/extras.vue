@@ -24,12 +24,22 @@ const {
   { initialNumItems: 5, authenticated: true },
 )
 
+const { showToast } = useToast()
 const { run: shout, pending: shouting } = useConvexAction(api.tasks.shout)
 const shoutInput = ref('hello convex')
-const shoutResult = ref<string | null>(null)
 
 async function runShout() {
-  shoutResult.value = await shout({ text: shoutInput.value })
+  const text = shoutInput.value.trim()
+  if (!text) {
+    return
+  }
+  try {
+    showToast(await shout({ text }))
+  }
+  catch (cause: unknown) {
+    const err = cause as { message?: string }
+    showToast(err.message ?? 'Shout failed')
+  }
 }
 
 const connection = useConvexConnectionState()
@@ -139,12 +149,6 @@ const connection = useConvexConnectionState()
             {{ shouting ? 'Running…' : 'Shout' }}
           </button>
         </form>
-        <p
-          v-if="shoutResult"
-          class="mt-3 text-sm"
-        >
-          {{ shoutResult }}
-        </p>
       </section>
     </template>
   </main>

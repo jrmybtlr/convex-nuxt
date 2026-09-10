@@ -3,7 +3,17 @@ const { error, pending, signIn } = useAuth()
 
 const email = ref('')
 const password = ref('')
-const mode = ref<'signIn' | 'signUp'>('signIn')
+const mode = ref<'signIn' | 'signUp'>('signUp')
+
+function displayError(message: string | null): string | null {
+  if (!message) {
+    return null
+  }
+  if (message.includes('InvalidSecret') || message.includes('InvalidAccountId')) {
+    return 'Invalid email or password. If this is a new account, use Create account.'
+  }
+  return message
+}
 
 async function submit() {
   try {
@@ -53,7 +63,7 @@ async function submit() {
         v-if="error"
         class="text-sm text-red-700"
       >
-        {{ error }}
+        {{ displayError(error) }}
       </p>
       <div class="flex flex-wrap gap-2">
         <button
