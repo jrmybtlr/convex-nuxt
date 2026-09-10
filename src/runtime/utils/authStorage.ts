@@ -21,10 +21,12 @@ export type ConvexAuthConfig = {
   cookie?: string
   /**
    * Store JWT + refresh in HttpOnly cookies via Nitro (Next.js parity).
-   * When true, JS cannot read tokens; `fetchToken` hits `/api/convex/auth/*`.
+   * When true, JS cannot read tokens from `document.cookie`; `fetchToken`
+   * uses same-origin POST `/api/convex/auth/session` with `{ getToken: true }`.
+   * Prefer `true` in production. Does not make sessions XSS-proof.
    */
   httpOnly?: boolean
-  /** Readable presence cookie when `httpOnly` is set. */
+  /** Readable presence cookie when `httpOnly` is set (UI only). */
   presentCookie?: string
 }
 
