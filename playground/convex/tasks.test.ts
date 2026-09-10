@@ -65,4 +65,17 @@ describe('tasks', () => {
         .mutation(api.tasks.toggle, { taskId }),
     ).rejects.toThrow(/Unauthorized/)
   })
+
+  it('shout requires auth and uppercases text', async () => {
+    const t = convexTest(schema, modules)
+    await expect(t.action(api.tasks.shout, { text: 'hi' })).rejects.toThrow(
+      /Not authenticated/,
+    )
+
+    const userId = await t.run(async (ctx) => ctx.db.insert('users', {}))
+    const asUser = t.withIdentity({ subject: asSubject(userId) })
+    await expect(asUser.action(api.tasks.shout, { text: ' hi ' })).resolves.toBe(
+      'HI',
+    )
+  })
 })

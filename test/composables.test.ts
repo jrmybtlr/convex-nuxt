@@ -318,6 +318,44 @@ describe('prewarmQuery / useAuthToken / useConvexQueries', () => {
     expect(results.value.a).toEqual(['ok'])
     expect(results.value.b).toBeUndefined()
   })
+
+  it('useConvexQueries does not resubscribe when args are unchanged', async () => {
+    const onUpdate = vi.fn((_q, _a, onResult) => {
+      onResult(['ok'])
+      return vi.fn()
+    })
+    const client = { onUpdate } as unknown as NonNullable<ConvexNuxtContext['client']>
+    const ctx = makeCtx({ client })
+    vi.doMock('../src/runtime/utils/context', () => ({
+      useConvexContext: () => ctx,
+      tryUseConvexContext: () => ctx,
+    }))
+
+    const { useConvexQueries } = await import(
+      '../src/runtime/composables/useConvexQueries'
+    )
+    const query = makeFunctionReference<'query', { id: string }, string[]>(
+      'tasks:get',
+    )
+    const request = ref({
+      a: { query, args: { id: '1' } },
+    })
+    useConvexQueries(request)
+    expect(onUpdate).toHaveBeenCalledTimes(1)
+
+    // Deep churn with identical query/args must keep the subscription.
+    request.value = {
+      a: { query, args: { id: '1' } },
+    }
+    await Promise.resolve()
+    expect(onUpdate).toHaveBeenCalledTimes(1)
+
+    request.value = {
+      a: { query, args: { id: '2' } },
+    }
+    await Promise.resolve()
+    expect(onUpdate).toHaveBeenCalledTimes(2)
+  })
 })
 
 describe('useConvexQuery authenticated option', () => {
@@ -364,7 +402,7 @@ describe('useConvexQuery authenticated option', () => {
     const onUpdate = vi.fn(() => vi.fn())
     const ctx = makeCtx({
       client: { onUpdate } as unknown as NonNullable<ConvexNuxtContext['client']>,
-      createHttpClient: vi.fn(() => ({ query: httpQuery })),
+      createHttpClient: vi.fn(() => ({ query: httpQuery })) as unknown as ConvexNuxtContext['createHttpClient'],
     })
     ctx.auth.isAuthenticated.value = false
 
@@ -388,7 +426,7 @@ describe('useConvexQuery authenticated option', () => {
     const httpQuery = vi.fn().mockResolvedValue([{ text: 'ok' }])
     const ctx = makeCtx({
       client: null,
-      createHttpClient: vi.fn(() => ({ query: httpQuery })),
+      createHttpClient: vi.fn(() => ({ query: httpQuery })) as unknown as ConvexNuxtContext['createHttpClient'],
     })
     ctx.auth.isAuthenticated.value = true
 
@@ -410,7 +448,7 @@ describe('useConvexQuery authenticated option', () => {
     })
     const ctx = makeCtx({
       client: { onUpdate } as unknown as NonNullable<ConvexNuxtContext['client']>,
-      createHttpClient: vi.fn(() => ({ query: httpQuery })),
+      createHttpClient: vi.fn(() => ({ query: httpQuery })) as unknown as ConvexNuxtContext['createHttpClient'],
     })
     ctx.auth.isAuthenticated.value = false
 

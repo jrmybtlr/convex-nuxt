@@ -219,7 +219,7 @@ await loadHealth()
         POST /api/shout
       </h2>
       <p class="mt-1 text-sm text-zinc-500">
-        Public <code>fetchAction</code> demo — no cookie required.
+        Authenticated <code>fetchAction</code> demo — sign in on Live first.
       </p>
       <form
         class="mt-4 flex flex-wrap gap-2"

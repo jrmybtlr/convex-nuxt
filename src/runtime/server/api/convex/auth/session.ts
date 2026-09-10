@@ -3,7 +3,6 @@ import { makeFunctionReference } from 'convex/server'
 import {
   createError,
   defineEventHandler,
-  getRequestHeader,
   readBody,
 } from 'h3'
 import { useRuntimeConfig } from 'nitropack/runtime'
@@ -13,6 +12,7 @@ import {
   setAuthCookies,
 } from '../../../authCookies'
 import { isHttpOnlyAuth, type ConvexAuthConfig } from '../../../../utils/authStorage'
+import { assertSameOrigin } from '../../../sameOrigin'
 
 type AuthTokens = { token: string, refreshToken: string }
 
@@ -51,19 +51,19 @@ function requireHttpOnly(event: Parameters<typeof useRuntimeConfig>[0]) {
   }
 }
 
-function assertSameOrigin(event: Parameters<typeof getRequestHeader>[0]) {
-  const secFetchSite = getRequestHeader(event, 'sec-fetch-site')
-  if (secFetchSite && secFetchSite !== 'same-origin' && secFetchSite !== 'none') {
-    throw createError({
-      statusCode: 403,
-      message: 'Forbidden',
-    })
-  }
-}
-
 /**
  * Persist / read / refresh HttpOnly auth cookies.
- * GET → { hasSession, token }, POST → set or refresh, DELETE → clear.
+ *
+ * - GET → `{ hasSession }` only (no JWT in the response body)
+ * - POST `{ getToken: true }` → `{ hasSession, token }` for ConvexClient.setAuth
+ * - POST `{ refresh: true }` → refresh cookies, return `{ token }`
+ * - POST `{ token, refreshToken }` → set cookies
+ * - DELETE → clear cookies
+ *
+ * All methods require same-origin (fail-closed). Returning the JWT only via
+ * POST reduces accidental leakage via prefetch/logs; XSS can still obtain a
+ * token once ConvexClient needs it in memory — HttpOnly mitigates cookie theft,
+ * not XSS session theft.
  */
 export default defineEventHandler(async (event) => {
   requireHttpOnly(event)
@@ -73,7 +73,6 @@ export default defineEventHandler(async (event) => {
     const token = readHttpOnlyJwt(event)
     return {
       hasSession: !!token,
-      token: token ?? null,
     }
   }
 
@@ -87,7 +86,16 @@ export default defineEventHandler(async (event) => {
       token?: string | null
       refreshToken?: string | null
       refresh?: boolean
+      getToken?: boolean
     }>(event)
+
+    if (body?.getToken) {
+      const token = readHttpOnlyJwt(event)
+      return {
+        hasSession: !!token,
+        token: token ?? null,
+      }
+    }
 
     if (body?.refresh) {
       const refreshToken = readHttpOnlyRefresh(event)

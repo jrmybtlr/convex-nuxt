@@ -183,7 +183,7 @@ You still own the Convex backend:
 - `convex/auth.config.ts` — JWT issuer (`CONVEX_SITE_URL`)
 - Env: `JWT_PRIVATE_KEY` + `JWKS` (`npx @convex-dev/auth`), plus `SITE_URL` for OAuth
 
-By default the JWT is a readable cookie (`convex_jwt`) and the refresh token lives in `localStorage`. For HttpOnly dual cookies:
+By default the JWT is a readable cookie (`convex_jwt`) and the refresh token lives in `localStorage`. For production Convex Auth apps, prefer HttpOnly dual cookies:
 
 ```ts
 auth: {
@@ -192,7 +192,18 @@ auth: {
 }
 ```
 
-A readable `convex_auth_present` marker drives `hasSsrSession` / `showAuthedUi`; tokens themselves are HttpOnly.
+A readable `convex_auth_present` marker drives `hasSsrSession` / `showAuthedUi` (UI shell only — **not** authorization). Always gate private live queries with `{ authenticated: true }` (or equivalent). Tokens are HttpOnly cookies; the session API returns the JWT only via same-origin `POST { getToken: true }` for `ConvexClient.setAuth`. That mitigates cookie theft, **not** XSS (any XSS that can call your origin can still obtain a token once the client needs it in memory).
+
+### SSR query budget
+
+Defaults are `convex.server: true` and per-query `live: true` (HttpClient snapshot **and** WebSocket). On list-heavy pages, skip SSR or live selectively:
+
+```ts
+await useConvexQuery(api.tasks.list, {}, { server: false }) // client-only
+await useConvexQuery(api.stats.get, {}, { live: false }) // SSR / one-shot only
+```
+
+Or set `convex: { server: false }` globally.
 
 Protect a route:
 

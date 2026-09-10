@@ -3,7 +3,9 @@ import type {
   FunctionReference,
   FunctionReturnType,
 } from 'convex/server'
+import { getFunctionName } from 'convex/server'
 import type { Value } from 'convex/values'
+import { convexToJson } from 'convex/values'
 import {
   computed,
   onScopeDispose,
@@ -35,6 +37,13 @@ export type ConvexQueriesResult<Request extends ConvexQueriesRequest> = {
     : undefined
 }
 
+function subscriptionSignature(
+  query: FunctionReference<'query'>,
+  args: Record<string, Value>,
+): string {
+  return `${getFunctionName(query)}:${JSON.stringify(convexToJson(args))}`
+}
+
 /**
  * Subscribe to a dynamic map of Convex queries (React `useQueries` parity).
  *
@@ -44,6 +53,9 @@ export type ConvexQueriesResult<Request extends ConvexQueriesRequest> = {
  *
  * Browser-only live subscriptions. During SSR every entry is `undefined`
  * (combine with `useConvexQuery` when you need SSR for known queries).
+ *
+ * Unchanged keys (same function name + args) keep their existing subscription
+ * so deep reactive churn does not tear down WebSocket watches.
  */
 export function useConvexQueries<Request extends ConvexQueriesRequest>(
   queries: MaybeRefOrGetter<Request>,
@@ -59,34 +71,44 @@ export function useConvexQueries<Request extends ConvexQueriesRequest>(
 
   const client = ctx.client
   const unsubscribers = new Map<string, () => void>()
+  const signatures = new Map<string, string>()
+
+  const dropKey = (key: string) => {
+    unsubscribers.get(key)?.()
+    unsubscribers.delete(key)
+    signatures.delete(key)
+    if (key in results.value) {
+      const { [key]: _, ...rest } = results.value
+      results.value = rest
+    }
+  }
 
   const sync = (request: Request) => {
     const nextKeys = new Set(Object.keys(request))
 
     for (const key of unsubscribers.keys()) {
       if (!nextKeys.has(key)) {
-        unsubscribers.get(key)?.()
-        unsubscribers.delete(key)
-        const { [key]: _, ...rest } = results.value
-        results.value = rest
+        dropKey(key)
       }
     }
 
     for (const [key, entry] of Object.entries(request)) {
       if (entry === 'skip') {
-        unsubscribers.get(key)?.()
-        unsubscribers.delete(key)
-        if (key in results.value) {
-          const { [key]: _, ...rest } = results.value
-          results.value = rest
-        }
+        dropKey(key)
         continue
       }
 
-      // Drop previous subscription for this key before resubscribing.
+      const { query, args } = entry
+      const signature = subscriptionSignature(query, args)
+      if (
+        signatures.get(key) === signature
+        && unsubscribers.has(key)
+      ) {
+        continue
+      }
+
       unsubscribers.get(key)?.()
 
-      const { query, args } = entry
       const unsubscribe = client.onUpdate(
         query,
         args as FunctionArgs<typeof query>,
@@ -98,6 +120,7 @@ export function useConvexQueries<Request extends ConvexQueriesRequest>(
         },
       )
       unsubscribers.set(key, unsubscribe)
+      signatures.set(key, signature)
 
       // Loading placeholder until the first update.
       if (!(key in results.value)) {
@@ -119,6 +142,7 @@ export function useConvexQueries<Request extends ConvexQueriesRequest>(
       unsubscribe()
     }
     unsubscribers.clear()
+    signatures.clear()
   })
 
   return computed(() => results.value as ConvexQueriesResult<Request>)

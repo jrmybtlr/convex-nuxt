@@ -156,7 +156,11 @@ export async function establishHttpOnlySession(
 ): Promise<void> {
   const res = await fetch(`${baseURL}/api/convex/auth/session`, {
     method: 'POST',
-    headers: { 'content-type': 'application/json' },
+    headers: {
+      'content-type': 'application/json',
+      'sec-fetch-site': 'same-origin',
+      origin: baseURL,
+    },
     body: JSON.stringify({
       token: tokens.token,
       refreshToken: tokens.refreshToken,
@@ -175,7 +179,11 @@ export async function clearHttpOnlySession(
   const cookie = jar.header()
   const res = await fetch(`${baseURL}/api/convex/auth/session`, {
     method: 'DELETE',
-    headers: cookie ? { cookie } : undefined,
+    headers: {
+      'sec-fetch-site': 'same-origin',
+      origin: baseURL,
+      ...(cookie ? { cookie } : {}),
+    },
   })
   jar.absorb(res)
   jar.clear()
