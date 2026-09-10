@@ -1,15 +1,29 @@
 # Security & performance review — `@convex/nuxt`
 
 **Scope:** Module source (`src/`) and playground patterns (`playground/`).  
-**Mode:** Report only (no code changes).  
+**Mode:** Report + fixes (follow-up).  
 **Date:** 2026-09-10  
-**Baseline:** `main` @ `931d59d`
+**Baseline report:** `main` @ `931d59d`  
+**Fixes:** branch `cursor/security-perf-review-a843`
 
-## Summary
+## Fix status
+
+| Priority | Item | Status |
+|----------|------|--------|
+| P0 | Session GET returns JWT under HttpOnly | Fixed — GET returns `{ hasSession }` only; JWT via `POST { getToken: true }` |
+| P0 | CSRF `assertSameOrigin` fail-open | Fixed — fail-closed; Origin/Host fallback |
+| P1 | `useConvexQueries` resubscribe churn | Fixed — signature diff per key |
+| P1 | Document HttpOnly XSS limits + production `httpOnly` | Fixed — README + module JSDoc |
+| P2 | Presence-cookie / `showAuthedUi` trust boundary docs | Fixed — README |
+| P2 | SSR query budget guidance | Fixed — README |
+| P3 | OAuth redirect allowlist | Fixed — http(s) only via `parseOAuthRedirect` |
+| P3 | Playground unauth `shout` / `.collect()` | Fixed — auth on shout; `.take(100)` on list |
+
+## Original summary
 
 Auth and SSR design are generally sound: HttpOnly mode exists, OAuth code exchange requires a prior verifier, live queries can gate on Convex confirmation (`authenticated: true`), and playground Convex functions enforce ownership with validators and indexes.
 
-The highest-priority issues are around **HttpOnly session semantics vs XSS** (GET returns the JWT), **CSRF fail-open when `Sec-Fetch-Site` is absent**, and **subscription churn in `useConvexQueries`**. Playground backend patterns are mostly good; a few demo shortcuts are worth documenting so they are not copied into production apps.
+The highest-priority issues were around **HttpOnly session semantics vs XSS** (GET returned the JWT), **CSRF fail-open when `Sec-Fetch-Site` is absent**, and **subscription churn in `useConvexQueries`**. Those are addressed in this branch.
 
 ---
 

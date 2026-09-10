@@ -40,8 +40,14 @@ export interface ModuleAuthOptions {
   cookie?: string
   /**
    * Store JWT + refresh tokens in HttpOnly cookies via Nitro
-   * (`/api/convex/auth/session`). Next.js Convex Auth parity — tokens are
-   * not readable from JS. A readable presence cookie drives `hasSsrSession`.
+   * (`/api/convex/auth/session`). Cookies are not readable via
+   * `document.cookie`. Prefer `true` in production.
+   *
+   * Note: ConvexClient still needs the JWT in memory for the WebSocket;
+   * the session route returns it only via same-origin POST `{ getToken: true }`.
+   * HttpOnly mitigates cookie theft, not XSS session theft. The readable
+   * presence cookie drives `hasSsrSession` / `showAuthedUi` (UI only — gate
+   * private queries with `{ authenticated: true }`).
    *
    * @default false
    */

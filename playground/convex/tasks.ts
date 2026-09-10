@@ -13,6 +13,9 @@ const taskValidator = v.object({
   completed: v.boolean(),
 })
 
+/** Demo list cap — prefer `listPaginated` for unbounded user data. */
+const DEMO_LIST_LIMIT = 100
+
 async function listTasksForUser(
   ctx: QueryCtx,
   userId: Id<'users'>,
@@ -21,7 +24,7 @@ async function listTasksForUser(
     .query('tasks')
     .withIndex('by_user', (q) => q.eq('userId', userId))
     .order('desc')
-    .collect()
+    .take(DEMO_LIST_LIMIT)
 }
 
 async function createTaskForUser(
@@ -107,11 +110,16 @@ export const remove = mutation({
 
 /**
  * Demo action for playground `useConvexAction` / `fetchAction`.
+ * Requires auth so the unauthenticated-action pattern is not copy-pasted.
  */
 export const shout = action({
   args: { text: v.string() },
   returns: v.string(),
-  handler: async (_ctx, args) => {
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity()
+    if (!identity) {
+      throw new Error('Not authenticated')
+    }
     const text = args.text.trim()
     if (!text) {
       throw new Error('text is required')

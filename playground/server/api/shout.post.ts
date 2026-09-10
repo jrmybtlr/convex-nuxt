@@ -1,9 +1,10 @@
 import { api } from '~~/convex/_generated/api'
 
 /**
- * Demo `fetchAction` — uppercases text (no auth required).
+ * Demo `fetchAction` — uppercases text (requires Convex auth cookie).
  */
 export default defineEventHandler(async (event) => {
+  requireConvexAuth(event)
   const body = await readBody<{ text?: string }>(event)
   const text = body?.text?.trim()
   if (!text) {
@@ -12,6 +13,18 @@ export default defineEventHandler(async (event) => {
       statusMessage: 'text is required',
     })
   }
-  const shouted = await fetchAction(api.tasks.shout, { text }, { event })
-  return { shouted }
+  try {
+    const shouted = await fetchAction(api.tasks.shout, { text }, { event })
+    return { shouted }
+  }
+  catch (cause) {
+    const message = cause instanceof Error ? cause.message : String(cause)
+    if (/auth|unauthor|not authenticated/i.test(message)) {
+      throw createError({
+        statusCode: 401,
+        statusMessage: 'Sign in on the Live page so the auth cookie is set.',
+      })
+    }
+    throw cause
+  }
 })

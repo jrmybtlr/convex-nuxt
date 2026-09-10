@@ -29,6 +29,7 @@ import {
   type ConvexAuthConfig,
 } from '../utils/authStorage'
 import { tryUseConvexContext } from '../utils/context'
+import { parseOAuthRedirect } from '../utils/oauthRedirect'
 
 export type AuthTokens = {
   token: string
@@ -153,7 +154,7 @@ export async function signIn(
     })
 
     if (result.redirect !== undefined) {
-      const url = new URL(result.redirect)
+      const url = parseOAuthRedirect(result.redirect)
       if (result.verifier) {
         writeLocal(session.verifierKey.value, result.verifier)
       }
@@ -267,7 +268,7 @@ export async function getAuthToken({
   if (session.httpOnly) {
     return withRefreshMutex(session.refreshKey.value, async () => {
       if (!forceRefreshToken) {
-        const current = await fetchAuthSession()
+        const current = await fetchAuthSessionToken()
         if (current.token) {
           session.hasSession.value = true
           return current.token
@@ -450,14 +451,35 @@ function setPresentCookie(value: string | null): void {
 
 const AUTH_SESSION_PATH = '/api/convex/auth/session'
 
+/** Presence check only — GET never returns the JWT. */
 async function fetchAuthSession(): Promise<{
+  hasSession: boolean
+}> {
+  try {
+    return await $fetch<{ hasSession: boolean }>(AUTH_SESSION_PATH, {
+      method: 'GET',
+    })
+  }
+  catch {
+    return { hasSession: false }
+  }
+}
+
+/**
+ * Retrieve the HttpOnly JWT for ConvexClient.setAuth.
+ * Uses POST + same-origin CSRF so the token is not returned from GET.
+ */
+async function fetchAuthSessionToken(): Promise<{
   hasSession: boolean
   token: string | null
 }> {
   try {
     return await $fetch<{ hasSession: boolean, token: string | null }>(
       AUTH_SESSION_PATH,
-      { method: 'GET' },
+      {
+        method: 'POST',
+        body: { getToken: true },
+      },
     )
   }
   catch {
