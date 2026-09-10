@@ -206,5 +206,5 @@ if (secFetchSite && secFetchSite !== 'same-origin' && secFetchSite !== 'none') {
 ## Out of scope this pass
 
 - Runtime Lighthouse / Web Vitals (playground not booted; no Convex env in this review).
-- Implementing fixes (report only, per request).
+- Implementing fixes is in scope for this follow-up branch.
 - Dependency CVE audit / supply-chain scan.
