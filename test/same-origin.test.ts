@@ -10,7 +10,12 @@ function eventWithHeaders(headers: Record<string, string>): H3Event {
   }
   return {
     node: {
-      req: { headers: normalized },
+      req: {
+        headers: normalized,
+        // h3 getRequestProtocol falls back to encrypted / connection when
+        // x-forwarded-proto is unset.
+        connection: { encrypted: normalized['x-forwarded-proto'] === 'https' },
+      },
     },
   } as H3Event
 }
@@ -37,13 +42,33 @@ describe('assertSameOrigin', () => {
     ).toThrow(/Forbidden/)
   })
 
-  it('allows matching Origin/Host when Sec-Fetch-Site is absent', () => {
+  it('allows matching Origin scheme+host when Sec-Fetch-Site is absent', () => {
     expect(() =>
       assertSameOrigin(eventWithHeaders({
         origin: 'http://localhost:3000',
         host: 'localhost:3000',
       })),
     ).not.toThrow()
+  })
+
+  it('allows https Origin when X-Forwarded-Proto is https', () => {
+    expect(() =>
+      assertSameOrigin(eventWithHeaders({
+        origin: 'https://app.example.com',
+        host: 'app.example.com',
+        'x-forwarded-proto': 'https',
+      })),
+    ).not.toThrow()
+  })
+
+  it('rejects http Origin for an https request (scheme mismatch)', () => {
+    expect(() =>
+      assertSameOrigin(eventWithHeaders({
+        origin: 'http://app.example.com',
+        host: 'app.example.com',
+        'x-forwarded-proto': 'https',
+      })),
+    ).toThrow(/Forbidden/)
   })
 
   it('rejects mismatched Origin or missing signals', () => {
