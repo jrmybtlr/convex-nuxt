@@ -17,7 +17,7 @@ function eventWithHeaders(headers: Record<string, string>): H3Event {
         connection: { encrypted: normalized['x-forwarded-proto'] === 'https' },
       },
     },
-  } as H3Event
+  } as unknown as H3Event
 }
 
 describe('assertSameOrigin', () => {
