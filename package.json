@@ -24,7 +24,7 @@
   "scripts": {
     "build": "nuxt-module-build build",
     "dev:prepare": "nuxt-module-build build --stub && nuxt-module-build prepare && nuxi prepare playground",
-    "dev": "nuxi dev playground --dotenv .env.local",
+    "dev": "nuxi dev playground --dotenv playground/.env.local",
     "dev:backend": "cd playground && convex dev",
     "build:playground": "nuxi build playground",
     "lint": "vp lint",

@@ -5,7 +5,7 @@ These checks need a running Convex deployment and the playground app.
 ## Prerequisites
 
 ```bash
-pnpm run dev:backend   # terminal 1 — writes NUXT_PUBLIC_CONVEX_URL
+pnpm run dev:backend   # terminal 1 — writes CONVEX_URL to playground/.env.local
 pnpm run dev           # terminal 2
 ```
 

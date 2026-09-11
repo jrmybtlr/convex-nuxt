@@ -9,7 +9,7 @@ export default defineNuxtConfig({
     plugins: [tailwindcss()],
   },
   convex: {
-    url: process.env.NUXT_PUBLIC_CONVEX_URL,
+    url: process.env.NUXT_PUBLIC_CONVEX_URL ?? process.env.CONVEX_URL,
     auth: {
       provider: 'convex-auth',
       httpOnly: true,

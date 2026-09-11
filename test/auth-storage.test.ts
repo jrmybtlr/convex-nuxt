@@ -18,7 +18,6 @@ const refreshKey = storageKey(REFRESH_TOKEN_STORAGE_KEY, CONVEX_URL)
 
 const { cookieRef, stateStore, actionMock } = vi.hoisted(() => {
   // vitest hoisted factories run before ESM imports resolve
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
   const { ref } = require('vue') as typeof import('vue')
   return {
     cookieRef: ref<string | null>(null),

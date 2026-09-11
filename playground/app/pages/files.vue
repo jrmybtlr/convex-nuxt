@@ -62,13 +62,10 @@ async function onRemoveFile(fileId: string) {
 }
 
 function formatBytes(size: number): string {
-  if (size < 1024) {
-    return `${size} B`
-  }
-  if (size < 1024 * 1024) {
-    return `${(size / 1024).toFixed(1)} KB`
-  }
-  return `${(size / (1024 * 1024)).toFixed(1)} MB`
+  if (size < 1024) return `${size} B`
+  if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`
+  if (size < 1024 * 1024 * 1024) return `${(size / (1024 * 1024)).toFixed(1)} MB`
+  return `${(size / (1024 * 1024 * 1024)).toFixed(1)} GB`
 }
 
 function isImage(contentType: string): boolean {
@@ -159,9 +156,7 @@ function isImage(contentType: string): boolean {
               </button>
             </div>
           </li>
-          <li v-if="(files ?? []).length === 0" class="text-zinc-400">
-            No files yet — pick one above.
-          </li>
+          <li v-if="(files ?? []).length === 0" class="text-zinc-400">No files yet</li>
         </ul>
       </section>
     </template>

@@ -11,6 +11,8 @@ import {
 } from '@nuxt/kit'
 import { defu } from 'defu'
 import { resolveAuthCookieName } from './runtime/utils/authStorage'
+import { suggestedCloudUrlFromMismatch } from './runtime/utils/convexDashboard'
+import { warnStaleLocalConvexUrl } from './runtime/utils/errors'
 
 export interface ModuleAuthOptions {
   /**
@@ -168,6 +170,31 @@ export default defineNuxtModule<ModuleOptions>({
       client: options.client,
       auth,
     })
+
+    // Private DevTools credentials — never public. Defaults from Convex CLI env;
+    // Nitro inlines runtimeConfig so bare process.env.CONVEX_* is unreliable.
+    if (nuxt.options.dev) {
+      const publicUrl =
+        (nuxt.options.runtimeConfig.public.convex as { url?: string } | undefined)?.url ?? ''
+      const suggestedCloudUrl = suggestedCloudUrlFromMismatch(
+        publicUrl,
+        process.env.CONVEX_DEPLOYMENT,
+      )
+      if (suggestedCloudUrl) {
+        warnStaleLocalConvexUrl(publicUrl, suggestedCloudUrl)
+      }
+
+      nuxt.options.runtimeConfig.convexDevtools = defu(
+        (nuxt.options.runtimeConfig as { convexDevtools?: Record<string, string> })
+          .convexDevtools ?? {},
+        {
+          deployKey: process.env.CONVEX_DEPLOY_KEY ?? '',
+          deployment: process.env.CONVEX_DEPLOYMENT ?? '',
+          // Fallback when public.convex.url was empty at config eval time.
+          url: process.env.NUXT_PUBLIC_CONVEX_URL ?? process.env.CONVEX_URL ?? '',
+        },
+      )
+    }
 
     const resolver = createResolver(import.meta.url)
     const runtimeDir = resolver.resolve('./runtime')

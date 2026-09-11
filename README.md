@@ -323,6 +323,15 @@ convex: {
 
 `url` also reads `NUXT_PUBLIC_CONVEX_URL` via `runtimeConfig.public.convex.url`, so you can change the deployment without rebuilding.
 
+## Nuxt DevTools
+
+In development, a **Convex** tab appears in [Nuxt DevTools](https://devtools.nuxt.com). It embeds the official [hosted dashboard](https://docs.convex.dev/platform-apis/embedded-dashboard) for `*.convex.cloud` URLs and shows module config / tips.
+
+- **Open dashboard** deep-links to `dashboard.convex.dev` (uses your existing Convex login).
+- **Auto-login** in the embed needs `CONVEX_DEPLOY_KEY` in the Nuxt process environment (e.g. `.env.local`). Without it, the iframe shows Convex’s credential form.
+- A deploy key inlined into the DevTools page is visible to anyone who can reach your local `nuxt dev` server — only set it for trusted local machines.
+- Local / self-hosted backends are not embedded; use the Open dashboard link or the CLI dashboard instead.
+
 ## Contributing
 
 See [CONTRIBUTING.md](./CONTRIBUTING.md). Lint/format/test use **Vite+** (`vp`) — Oxlint, Oxfmt, and Vitest — while Nuxt module build/dev stay on `nuxt-module-build` / `nuxi`.
@@ -334,7 +343,7 @@ See [CONTRIBUTING.md](./CONTRIBUTING.md). Lint/format/test use **Vite+** (`vp`) 
 ```bash
 pnpm install
 
-# Terminal 1 — Convex backend (writes NUXT_PUBLIC_CONVEX_URL to .env.local)
+# Terminal 1 — Convex backend (writes CONVEX_URL to playground/.env.local)
 pnpm run dev:backend
 # first time: npx @convex-dev/auth   # JWT_PRIVATE_KEY + JWKS
 

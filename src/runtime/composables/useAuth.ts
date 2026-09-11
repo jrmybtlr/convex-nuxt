@@ -3,7 +3,7 @@ import { makeFunctionReference } from 'convex/server'
 import { computed, nextTick, type ComputedRef, type Ref } from 'vue'
 import { useRuntimeConfig, useState } from 'nuxt/app'
 import { useConvexAuth } from './useConvexAuth'
-import { missingConvexUrlError } from '../utils/errors'
+import { missingConvexUrlError, unreachableConvexUrlError } from '../utils/errors'
 import { withRefreshMutex } from '../utils/authMutex'
 import { useAuthJwtCookie, useAuthPresentCookie } from '../utils/authCookie'
 import {
@@ -160,7 +160,12 @@ export async function signIn(
     // Magic link / email: `{ started: true }` — no tokens yet.
     return { signingIn: false }
   } catch (cause) {
-    const message = cause instanceof Error ? cause.message : 'Authentication failed'
+    const message =
+      isNetworkError(cause) && convexUrl
+        ? unreachableConvexUrlError(convexUrl).message
+        : cause instanceof Error
+          ? cause.message
+          : 'Authentication failed'
     session.error.value = message
     throw cause
   } finally {

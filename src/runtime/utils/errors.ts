@@ -26,3 +26,15 @@ export function warnMissingConvexUrl(scope: 'client' | 'server'): void {
     `${USE_CONVEX_PREFIX} No Convex URL on ${scope}. ${MISSING_URL_HINT} The module no-ops until a URL is set.`,
   )
 }
+
+export function unreachableConvexUrlError(convexUrl: string): Error {
+  return useConvexError(
+    `Could not reach Convex at ${convexUrl}. If you switched from a local to a cloud deployment, set CONVEX_URL and NUXT_PUBLIC_CONVEX_URL in .env.local to the URL printed by \`npx convex dev\` and restart Nuxt. If you use a local backend, keep \`npx convex dev\` running.`,
+  )
+}
+
+export function warnStaleLocalConvexUrl(localUrl: string, cloudUrl: string): void {
+  console.warn(
+    `${USE_CONVEX_PREFIX} Convex URL is ${localUrl} but CONVEX_DEPLOYMENT is a cloud deployment. The Convex CLI could not update .env.local — set CONVEX_URL and NUXT_PUBLIC_CONVEX_URL to ${cloudUrl} and restart Nuxt.`,
+  )
+}

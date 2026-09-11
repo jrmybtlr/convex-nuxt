@@ -7,7 +7,7 @@ pnpm install
 pnpm dev:prepare   # stub the module + prepare playground
 ```
 
-Copy `.env.example` → `.env.local` (or let `convex dev` write `NUXT_PUBLIC_CONVEX_URL`).
+Copy `.env.example` → `playground/.env.local` (or let `pnpm run dev:backend` write `CONVEX_URL`).
 
 This repo uses **[Vite+](https://viteplus.dev)** (`vp`) for:
 

@@ -54,6 +54,23 @@ describe('module setup', () => {
 
     const routes = serverHandlerRoutes(nuxt)
     expect(routes).toContain('/api/convex/auth/session')
+
+    // DevTools private runtimeConfig is only registered in nuxt.options.dev.
+    if (nuxt.options.dev) {
+      const devtools = (
+        nuxt.options.runtimeConfig as {
+          convexDevtools?: { deployKey?: string; deployment?: string }
+        }
+      ).convexDevtools
+      expect(devtools).toEqual(
+        expect.objectContaining({
+          deployKey: expect.any(String),
+          deployment: expect.any(String),
+          url: expect.any(String),
+        }),
+      )
+      expect(routes).toContain('/__convex_devtools')
+    }
   })
 
   it('registers auth plugin and defaults cookie when provider is convex-auth', async () => {
@@ -89,8 +106,24 @@ describe('module setup', () => {
       'prewarmQuery',
       'requireConvexAuthMiddleware',
       '__convex_devtools',
+      'convexDevtools',
     ]) {
       expect(moduleSrc).toContain(token)
     }
+
+    const helperSrc = await readFile(
+      fileURLToPath(new URL('../src/runtime/utils/convexDashboard.ts', import.meta.url)),
+      'utf8',
+    )
+    expect(helperSrc).toContain('dashboard-embedded.convex.dev')
+
+    const devtoolsSrc = await readFile(
+      fileURLToPath(
+        new URL('../src/runtime/server/routes/__convex_devtools.get.ts', import.meta.url),
+      ),
+      'utf8',
+    )
+    expect(devtoolsSrc).toContain('buildDevtoolsDashboardPayload')
+    expect(devtoolsSrc).toContain('CONVEX_DEPLOY_KEY')
   })
 })
