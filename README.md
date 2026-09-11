@@ -151,7 +151,29 @@ await upload(file)
 // optional extra save args: await upload(file, { caption: '…' })
 ```
 
-Your Convex mutations must enforce auth — never expose an unauthenticated `generateUploadUrl`. Prefer storing `storageId` (and resolving URLs with `ctx.storage.getUrl`) over persisting raw public URLs. See the playground `files` module and the Extras page for a full list/upload/delete example.
+Your Convex mutations must enforce auth — never expose an unauthenticated `generateUploadUrl`. Prefer storing `storageId` (and resolving URLs with `ctx.storage.getUrl`) over persisting raw public URLs. See the playground `files` module and the `/files` page for a full list/upload/delete example.
+
+### Cloudflare R2 (`@convex-dev/r2`)
+
+For larger objects or R2-backed apps, use `useConvexR2Upload` — the Vue counterpart of `@convex-dev/r2/react`'s `useUploadFile`. It does not depend on the R2 package at runtime; pass the `clientApi()` exports from your Convex app:
+
+```ts
+// convex/r2.ts
+import { R2 } from '@convex-dev/r2'
+import { components } from './_generated/api'
+
+const r2 = new R2(components.r2)
+export const { generateUploadUrl, syncMetadata } = r2.clientApi({
+  checkUpload: async (ctx) => { /* auth */ },
+})
+```
+
+```ts
+const { upload, pending, error, progress } = useConvexR2Upload(api.r2)
+const key = await upload(file)
+```
+
+That runs `generateUploadUrl` → `PUT` to the signed URL → `syncMetadata({ key })`, with XHR progress. Use built-in `useConvexFileUpload` for Convex storage; use this helper when you adopt the R2 component.
 
 ## Auth
 
@@ -176,6 +198,7 @@ const { signIn, signOut } = useAuth()
 
 <template>
   <AuthLoading>Resolving…</AuthLoading>
+  <AuthRefreshing>Refreshing session…</AuthRefreshing>
   <Authenticated>
     <!-- signed-in shell -->
   </Authenticated>
@@ -185,7 +208,7 @@ const { signIn, signOut } = useAuth()
 </template>
 ```
 
-Prefer `<Authenticated>` (or `showAuthedUi`) so SSR HTML does not flash the sign-in form. Gate private queries with `{ authenticated: true }`.
+Prefer `<Authenticated>` (or `showAuthedUi`) so SSR HTML does not flash the sign-in form. Gate private queries with `{ authenticated: true }`. `<AuthRefreshing>` shows only while an authenticated session is refreshing a rejected token (same as React).
 
 ```ts
 await signIn('password', { email, password, flow: 'signIn' })
@@ -232,7 +255,7 @@ export default defineNuxtRouteMiddleware(() => {
 })
 ```
 
-`useAuthToken()` returns the current JWT for authenticated HTTP calls. `useConvexGate()` exposes `{ showAuthedUi, showLoading, showSignedOut, showRefreshing }` if you prefer flags over layout components.
+`useAuthToken()` returns the current JWT for authenticated HTTP calls. `useConvexGate()` exposes `{ showAuthedUi, showLoading, showSignedOut, showRefreshing }` if you prefer flags over layout components (`Authenticated` / `Unauthenticated` / `AuthLoading` / `AuthRefreshing`).
 
 ### Bring your own (Clerk, Auth0, custom)
 
