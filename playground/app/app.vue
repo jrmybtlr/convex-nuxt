@@ -19,6 +19,12 @@ const { toast, toastKey } = useToast()
           Server routes
         </NuxtLink>
         <NuxtLink
+          to="/files"
+          class="text-zinc-400 aria-[current=page]:text-zinc-900 hover:text-zinc-900"
+        >
+          Files
+        </NuxtLink>
+        <NuxtLink
           to="/extras"
           class="text-zinc-400 aria-[current=page]:text-zinc-900 hover:text-zinc-900"
         >

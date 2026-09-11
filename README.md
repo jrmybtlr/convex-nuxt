@@ -317,7 +317,8 @@ pnpm run dev
 |---|---|
 | `/` | SSR snapshot + live overlay (sign up, CRUD todos) |
 | `/server` | Nitro `fetchQuery` / `fetchMutation` / `fetchAction` |
-| `/extras` | `live: false`, pagination, action, connection state, file upload |
+| `/files` | `useConvexFileUpload` (upload, list, preview, delete) |
+| `/extras` | `live: false`, pagination, action, connection state |
 
 On `/server`: `GET /api/health` is public; `GET`/`POST /api/tasks` use the cookie JWT; `POST /api/shout` is a public `fetchAction` demo.
 
