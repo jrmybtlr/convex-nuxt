@@ -6,8 +6,10 @@ SSR snapshots hydrate through the Nuxt payload, then the browser overlays a live
 
 ## Install
 
+[`use-convex` on npm](https://www.npmjs.com/package/use-convex)
+
 ```bash
-pnpm add use-convex convex
+npm i use-convex convex
 ```
 
 ```ts

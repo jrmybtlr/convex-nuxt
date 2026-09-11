@@ -1,12 +1,13 @@
-# Security & performance fixes
+# Fix NUXT_B8017: use-convex could not be loaded
 
-- [x] Harden session API: CSRF fail-closed; GET returns `hasSession` only; JWT via POST `{ getToken: true }`
-- [x] Fix `useConvexQueries` to skip resubscribe when query/args unchanged
-- [x] Docs: HttpOnly XSS limits, `showAuthedUi`, SSR budget, prefer `httpOnly: true`
-- [x] OAuth redirect: allow only http(s)
-- [x] Playground: auth-required `shout`; cap `list` with `.take(100)`
-- [x] Tests: same-origin, oauth redirect, queries resubscribe, shout auth; typecheck + unit + nuxt
+- [x] Identify why Nuxt cannot resolve `modules: ['use-convex']` in the playground
+- [x] Point playground at local module source (`../src/module`)
+- [x] Verify Nuxt can initialize the playground after the change
 
 ## Review
 
-Fixes for findings in [security-performance-review.md](./security-performance-review.md). Unit + Nuxt tests pass; Convex E2E remains skipped without `E2E_CONVEX=1`.
+`NUXT_B8017` happened because the playground loaded the module by package name (`use-convex`). After the rename from `@convex/nuxt`, Nuxt's resolver could not find that name (and cached the miss in the long-running `nuxt dev` process).
+
+The playground now uses `../src/module`, which is the Nuxt module-starter pattern and matches the test fixtures. `nuxi prepare playground` succeeds, and the running playground restarted without the error.
+
+Consumer apps still install with `modules: ['use-convex']` as documented in the README.

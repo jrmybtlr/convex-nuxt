@@ -3,7 +3,7 @@ import { defineNuxtConfig } from 'nuxt/config'
 
 export default defineNuxtConfig({
   compatibilityDate: '2026-01-01',
-  modules: ['use-convex'],
+  modules: ['../src/module'],
   css: ['~/assets/css/main.css'],
   vite: {
     plugins: [tailwindcss()],
