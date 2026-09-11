@@ -1,8 +1,4 @@
-import type {
-  FunctionArgs,
-  FunctionReference,
-  FunctionReturnType,
-} from 'convex/server'
+import type { FunctionArgs, FunctionReference, FunctionReturnType } from 'convex/server'
 import { convexToJson, jsonToConvex } from 'convex/values'
 import { useAsyncData, useRuntimeConfig } from 'nuxt/app'
 import {
@@ -21,9 +17,7 @@ import { resolveQueryOverlay } from '../utils/overlay'
 import { readHydratedPayloadCache } from '../utils/payloadCache'
 import { convexQueryKey } from '../utils/queryKey'
 
-export type ConvexQueryArgs<Query extends FunctionReference<'query'>> =
-  | FunctionArgs<Query>
-  | 'skip'
+export type ConvexQueryArgs<Query extends FunctionReference<'query'>> = FunctionArgs<Query> | 'skip'
 
 export interface UseConvexQueryOptions {
   /**
@@ -73,7 +67,9 @@ export interface UseConvexQueryReturn<T> {
   data: Ref<T | null | undefined> | ComputedRef<T | null | undefined>
   error: Ref<Error | null | undefined> | ComputedRef<Error | null | undefined>
   pending: Ref<boolean> | ComputedRef<boolean>
-  status: Ref<'pending' | 'success' | 'error' | string> | ComputedRef<'pending' | 'success' | 'error' | string>
+  status:
+    | Ref<'pending' | 'success' | 'error' | string>
+    | ComputedRef<'pending' | 'success' | 'error' | string>
   refresh: () => Promise<void>
 }
 
@@ -90,17 +86,14 @@ export async function useConvexQuery<Query extends FunctionReference<'query'>>(
   options: UseConvexQueryOptions = {},
 ): Promise<UseConvexQueryReturn<FunctionReturnType<Query>>> {
   const runtimeConfig = useRuntimeConfig()
-  const defaultServer = (
-    runtimeConfig.public.convex as { server?: boolean } | undefined
-  )?.server
+  const defaultServer = (runtimeConfig.public.convex as { server?: boolean } | undefined)?.server
   const server = options.server ?? defaultServer ?? true
   const live = options.live ?? true
   const requireAuth = options.authenticated ?? false
   const ctx = useConvexContext()
 
   /** Caller-provided args (may be `'skip'` for non-auth gates). */
-  const resolveRawArgs = (): ConvexQueryArgs<Query> =>
-    toValue(args) as ConvexQueryArgs<Query>
+  const resolveRawArgs = (): ConvexQueryArgs<Query> => toValue(args) as ConvexQueryArgs<Query>
 
   /** Effective args for fetch / subscribe (keys still come from raw args). */
   const resolveEffectiveArgs = (): ConvexQueryArgs<Query> =>
@@ -111,9 +104,7 @@ export async function useConvexQuery<Query extends FunctionReference<'query'>>(
 
   // Reactive key from raw args so auth-skip keeps the same payload slot.
   // Caller `'skip'` still shares the empty-args key (SSR reuse).
-  const key = computed(() =>
-    convexQueryKey(query, resolveRawArgs(), options.key),
-  )
+  const key = computed(() => convexQueryKey(query, resolveRawArgs(), options.key))
 
   const asyncData = await useAsyncData<FunctionReturnType<Query> | null>(
     key,
@@ -131,10 +122,7 @@ export async function useConvexQuery<Query extends FunctionReference<'query'>>(
       }
 
       const http = ctx.createHttpClient({ token })
-      const result = await http.query(
-        query,
-        (argsValue ?? {}) as FunctionArgs<Query>,
-      )
+      const result = await http.query(query, (argsValue ?? {}) as FunctionArgs<Query>)
       // Round-trip Convex values so Int64/bytes survive the Nuxt payload.
       return jsonToConvex(convexToJson(result)) as FunctionReturnType<Query>
     },
@@ -149,20 +137,14 @@ export async function useConvexQuery<Query extends FunctionReference<'query'>>(
         // Re-run when auth confirms *and* a JWT is available for HttpClient
         // (readable cookie / SSR). Avoids anonymous client refetches with HttpOnly.
         () =>
-          requireAuth
-          && ctx.auth.isAuthenticated.value
-          && !!(options.token ?? ctx.ssrToken.value),
+          requireAuth && ctx.auth.isAuthenticated.value && !!(options.token ?? ctx.ssrToken.value),
       ],
     },
   )
 
   const refresh = async () => {
     // HttpOnly clients have no JWT for HttpClient — keep the payload / live.
-    if (
-      requireAuth
-      && import.meta.client
-      && !(options.token ?? ctx.ssrToken.value)
-    ) {
+    if (requireAuth && import.meta.client && !(options.token ?? ctx.ssrToken.value)) {
       return
     }
     await asyncData.refresh()
@@ -190,7 +172,7 @@ export async function useConvexQuery<Query extends FunctionReference<'query'>>(
 
   const client = ctx.client
   if (!client) {
-    throw new Error('[convex-nuxt] ConvexClient is not available on the client.')
+    throw new Error('[use-convex] ConvexClient is not available on the client.')
   }
 
   const liveReady = ref(false)

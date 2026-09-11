@@ -2,11 +2,8 @@ import { ConvexClient, type ConvexClientOptions } from 'convex/browser'
 import { defineNuxtPlugin, useRuntimeConfig } from 'nuxt/app'
 import { useSsrTokenRef } from './utils/authCookie'
 import { createHttpClient } from './utils/http'
-import {
-  convexNuxtKey,
-  createAuthContext,
-  type ConvexNuxtContext,
-} from './utils/context'
+import { convexNuxtKey, createAuthContext, type ConvexNuxtContext } from './utils/context'
+import { warnMissingConvexUrl } from './utils/errors'
 
 export default defineNuxtPlugin({
   name: 'convex-nuxt-client',
@@ -14,18 +11,16 @@ export default defineNuxtPlugin({
     const config = useRuntimeConfig()
     const convexConfig = config.public.convex as
       | {
-        url?: string
-        auth?: { provider?: string, cookie?: string }
-        client?: ConvexClientOptions
-      }
+          url?: string
+          auth?: { provider?: string; cookie?: string }
+          client?: ConvexClientOptions
+        }
       | undefined
     const url = convexConfig?.url
 
     if (!url) {
       if (import.meta.dev) {
-        console.warn(
-          '[convex-nuxt] No Convex URL configured. Set convex.url or NUXT_PUBLIC_CONVEX_URL.',
-        )
+        warnMissingConvexUrl('client')
       }
       return
     }

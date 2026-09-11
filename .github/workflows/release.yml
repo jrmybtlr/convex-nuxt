@@ -34,11 +34,17 @@ jobs:
       - name: Prepare module stubs
         run: pnpm dev:prepare
 
+      - name: Check (Oxfmt + Oxlint)
+        run: pnpm check
+
       - name: Test
         run: pnpm test
 
       - name: Typecheck
         run: pnpm typecheck
+
+      - name: Typecheck playground
+        run: pnpm typecheck:playground
 
       - name: Build
         run: pnpm build

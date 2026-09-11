@@ -12,10 +12,7 @@ export async function getCurrentUserId(ctx: AuthCtx): Promise<Id<'users'>> {
   return userId
 }
 
-export async function requireTaskOwner(
-  ctx: AuthCtx,
-  taskId: Id<'tasks'>,
-): Promise<Doc<'tasks'>> {
+export async function requireTaskOwner(ctx: AuthCtx, taskId: Id<'tasks'>): Promise<Doc<'tasks'>> {
   const userId = await getCurrentUserId(ctx)
   const task = await ctx.db.get(taskId)
   if (!task) {

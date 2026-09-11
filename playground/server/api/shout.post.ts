@@ -16,8 +16,7 @@ export default defineEventHandler(async (event) => {
   try {
     const shouted = await fetchAction(api.tasks.shout, { text }, { event })
     return { shouted }
-  }
-  catch (cause) {
+  } catch (cause) {
     rethrowConvexAuthError(cause)
   }
 })

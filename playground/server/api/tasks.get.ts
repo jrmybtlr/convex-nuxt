@@ -8,8 +8,7 @@ export default defineEventHandler(async (event) => {
   requireConvexAuth(event)
   try {
     return await fetchQuery(api.tasks.list, {}, { event })
-  }
-  catch (cause) {
+  } catch (cause) {
     rethrowConvexAuthError(cause)
   }
 })

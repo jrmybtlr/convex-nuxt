@@ -2,13 +2,7 @@
 import type { Id } from '~~/convex/_generated/dataModel'
 import { api } from '~~/convex/_generated/api'
 
-const {
-  isAuthenticated,
-  isLoading,
-  showAuthedUi,
-  pending: authPending,
-  signOut,
-} = useAuth()
+const { isAuthenticated, isLoading, showAuthedUi, pending: authPending, signOut } = useAuth()
 
 // `authenticated: true` skips live subscribe until Convex confirms; SSR still
 // snapshots via the cookie-stamped isAuthenticated, and the overlay keeps the
@@ -65,16 +59,13 @@ async function onRemove(taskId: Id<'tasks'>) {
 
     <!-- showAuthedUi keeps SSR HTML mounted while Convex confirms -->
     <template v-if="showAuthedUi">
-      <form
-        class="mt-6 flex flex-wrap gap-2"
-        @submit.prevent="addTask"
-      >
+      <form class="mt-6 flex flex-wrap gap-2" @submit.prevent="addTask">
         <input
           v-model="draft"
           placeholder="New task"
           class="min-w-0 flex-1 rounded-md border border-zinc-200 px-3 py-1.5 text-sm outline-none focus:border-zinc-400 disabled:opacity-50"
           :disabled="!isAuthenticated"
-        >
+        />
         <button
           type="submit"
           class="rounded-md border border-zinc-200 px-3 py-1.5 text-sm disabled:opacity-50"
@@ -92,23 +83,12 @@ async function onRemove(taskId: Id<'tasks'>) {
         </button>
       </form>
 
-      <p
-        v-if="pending"
-        class="mt-4 text-sm text-zinc-400"
-      >
-        Loading…
-      </p>
-      <p
-        v-else-if="error"
-        class="mt-4 text-sm text-red-700"
-      >
+      <p v-if="pending" class="mt-4 text-sm text-zinc-400">Loading…</p>
+      <p v-else-if="error" class="mt-4 text-sm text-red-700">
         {{ error.message }}
       </p>
 
-      <ul
-        v-else
-        class="mt-4"
-      >
+      <ul v-else class="mt-4">
         <li
           v-for="task in data ?? []"
           :key="task._id"
@@ -119,11 +99,8 @@ async function onRemove(taskId: Id<'tasks'>) {
             :checked="task.completed"
             :disabled="!isAuthenticated"
             @change="onToggle(task._id)"
-          >
-          <span
-            class="flex-1"
-            :class="{ 'text-zinc-400 line-through': task.completed }"
-          >
+          />
+          <span class="flex-1" :class="{ 'text-zinc-400 line-through': task.completed }">
             {{ task.text }}
           </span>
           <button

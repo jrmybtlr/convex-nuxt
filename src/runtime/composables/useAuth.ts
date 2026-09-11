@@ -1,21 +1,11 @@
 import { ConvexHttpClient } from 'convex/browser'
 import { makeFunctionReference } from 'convex/server'
-import {
-  computed,
-  nextTick,
-  type ComputedRef,
-  type Ref,
-} from 'vue'
-import {
-  useRuntimeConfig,
-  useState,
-} from 'nuxt/app'
+import { computed, nextTick, type ComputedRef, type Ref } from 'vue'
+import { useRuntimeConfig, useState } from 'nuxt/app'
 import { useConvexAuth } from './useConvexAuth'
+import { missingConvexUrlError } from '../utils/errors'
 import { withRefreshMutex } from '../utils/authMutex'
-import {
-  useAuthJwtCookie,
-  useAuthPresentCookie,
-} from '../utils/authCookie'
+import { useAuthJwtCookie, useAuthPresentCookie } from '../utils/authCookie'
 import {
   flattenSignInParams,
   isHttpOnlyAuth,
@@ -59,9 +49,7 @@ const authSignIn = makeFunctionReference<
   SignInActionResult
 >('auth:signIn')
 
-const authSignOut = makeFunctionReference<'action', Record<string, never>, null>(
-  'auth:signOut',
-)
+const authSignOut = makeFunctionReference<'action', Record<string, never>, null>('auth:signOut')
 
 const RETRY_BACKOFF = [500, 2000]
 const RETRY_JITTER = 100
@@ -137,7 +125,7 @@ export async function signIn(
   const session = useAuthSession()
   const convexUrl = session.convexUrl
   if (!convexUrl) {
-    throw new Error('Convex URL is not configured')
+    throw missingConvexUrlError('signIn')
   }
 
   session.pending.value = true
@@ -171,14 +159,11 @@ export async function signIn(
 
     // Magic link / email: `{ started: true }` — no tokens yet.
     return { signingIn: false }
-  }
-  catch (cause) {
-    const message
-      = cause instanceof Error ? cause.message : 'Authentication failed'
+  } catch (cause) {
+    const message = cause instanceof Error ? cause.message : 'Authentication failed'
     session.error.value = message
     throw cause
-  }
-  finally {
+  } finally {
     session.pending.value = false
   }
 }
@@ -201,19 +186,17 @@ export async function signOut(): Promise<void> {
       }
       try {
         await http.action(authSignOut, {})
-      }
-      catch {
+      } catch {
         // Already signed out is fine.
       }
     }
     await persistTokens(session, null)
-  }
-  finally {
+  } finally {
     session.pending.value = false
   }
 }
 
-/** @internal Used by the Convex Auth client plugin. */
+/** @internal */
 export function hydrateAuthFromStorage(): void {
   const session = useAuthSession()
   if (!session.convexUrl) {
@@ -253,7 +236,7 @@ export function hydrateAuthFromStorage(): void {
   }
 }
 
-/** @internal Token fetcher for `useConvexAuth({ fetchToken })`. */
+/** @internal */
 export async function getAuthToken({
   forceRefreshToken,
 }: {
@@ -305,15 +288,14 @@ export async function getAuthToken({
       }
       persistTokens(session, tokens)
       return tokens.token
-    }
-    catch {
+    } catch {
       persistTokens(session, null)
       return null
     }
   })
 }
 
-/** @internal Sync check for OAuth `?code=` + stored verifier (no await). */
+/** @internal */
 export function hasPendingOAuthCallback(): boolean {
   if (!import.meta.client) {
     return false
@@ -327,7 +309,7 @@ export function hasPendingOAuthCallback(): boolean {
   return shouldConsumeOAuthCode({ code, verifier })
 }
 
-/** @internal Used by the Convex Auth client plugin. */
+/** @internal */
 export async function consumeOAuthCodeFromUrl(): Promise<boolean> {
   if (!import.meta.client) {
     return false
@@ -359,20 +341,17 @@ export async function consumeOAuthCodeFromUrl(): Promise<boolean> {
     })
     await persistTokens(session, result.tokens ?? null)
     return result.tokens != null
-  }
-  catch (cause) {
-    const message
-      = cause instanceof Error ? cause.message : 'OAuth callback failed'
+  } catch (cause) {
+    const message = cause instanceof Error ? cause.message : 'OAuth callback failed'
     session.error.value = message
     await persistTokens(session, null)
     return false
-  }
-  finally {
+  } finally {
     session.pending.value = false
   }
 }
 
-/** @internal Provider session flags for `useConvexAuth`. */
+/** @internal */
 export function useAuthProviderState() {
   const session = useAuthSession()
   return {
@@ -395,9 +374,7 @@ interface AuthSession {
 
 function useAuthSession(): AuthSession {
   const config = useRuntimeConfig()
-  const convexConfig = config.public.convex as
-    | { url?: string, auth?: ConvexAuthConfig }
-    | undefined
+  const convexConfig = config.public.convex as { url?: string; auth?: ConvexAuthConfig } | undefined
   const convexUrl = convexConfig?.url
   const httpOnly = isHttpOnlyAuth(convexConfig?.auth)
 
@@ -410,14 +387,10 @@ function useAuthSession(): AuthSession {
     convexUrl ? storageKey(JWT_STORAGE_KEY, convexUrl) : JWT_STORAGE_KEY,
   )
   const refreshKey = computed(() =>
-    convexUrl
-      ? storageKey(REFRESH_TOKEN_STORAGE_KEY, convexUrl)
-      : REFRESH_TOKEN_STORAGE_KEY,
+    convexUrl ? storageKey(REFRESH_TOKEN_STORAGE_KEY, convexUrl) : REFRESH_TOKEN_STORAGE_KEY,
   )
   const verifierKey = computed(() =>
-    convexUrl
-      ? storageKey(VERIFIER_STORAGE_KEY, convexUrl)
-      : VERIFIER_STORAGE_KEY,
+    convexUrl ? storageKey(VERIFIER_STORAGE_KEY, convexUrl) : VERIFIER_STORAGE_KEY,
   )
 
   return {
@@ -459,8 +432,7 @@ async function fetchAuthSession(): Promise<{
     return await $fetch<{ hasSession: boolean }>(AUTH_SESSION_PATH, {
       method: 'GET',
     })
-  }
-  catch {
+  } catch {
     return { hasSession: false }
   }
 }
@@ -474,15 +446,11 @@ async function fetchAuthSessionToken(): Promise<{
   token: string | null
 }> {
   try {
-    return await $fetch<{ hasSession: boolean, token: string | null }>(
-      AUTH_SESSION_PATH,
-      {
-        method: 'POST',
-        body: { getToken: true },
-      },
-    )
-  }
-  catch {
+    return await $fetch<{ hasSession: boolean; token: string | null }>(AUTH_SESSION_PATH, {
+      method: 'POST',
+      body: { getToken: true },
+    })
+  } catch {
     return { hasSession: false, token: null }
   }
 }
@@ -494,8 +462,7 @@ async function refreshAuthSession(): Promise<string | null> {
       body: { refresh: true },
     })
     return result.token
-  }
-  catch {
+  } catch {
     return null
   }
 }
@@ -503,8 +470,7 @@ async function refreshAuthSession(): Promise<string | null> {
 async function clearAuthSession(): Promise<void> {
   try {
     await $fetch(AUTH_SESSION_PATH, { method: 'DELETE' })
-  }
-  catch {
+  } catch {
     // ignore
   }
   setPresentCookie(null)
@@ -525,10 +491,7 @@ async function writeHttpOnlySession(tokens: AuthTokens | null): Promise<void> {
   setPresentCookie('1')
 }
 
-async function persistTokens(
-  session: AuthSession,
-  tokens: AuthTokens | null,
-): Promise<void> {
+async function persistTokens(session: AuthSession, tokens: AuthTokens | null): Promise<void> {
   if (session.httpOnly) {
     if (tokens === null) {
       await writeHttpOnlySession(null)
@@ -590,15 +553,14 @@ async function callSignInWithRetry(
   while (retry < RETRY_BACKOFF.length) {
     try {
       return await callSignIn(convexUrl, args)
-    }
-    catch (e) {
+    } catch (e) {
       lastError = e
       if (!isNetworkError(e)) {
         break
       }
       const wait = RETRY_BACKOFF[retry]! + RETRY_JITTER * Math.random()
       retry++
-      await new Promise(resolve => setTimeout(resolve, wait))
+      await new Promise((resolve) => setTimeout(resolve, wait))
     }
   }
   throw lastError
@@ -608,10 +570,7 @@ function isNetworkError(error: unknown): boolean {
   if (error instanceof TypeError) {
     return true
   }
-  if (
-    error instanceof Error
-    && /network|fetch|Failed to fetch/i.test(error.message)
-  ) {
+  if (error instanceof Error && /network|fetch|Failed to fetch/i.test(error.message)) {
     return true
   }
   return false

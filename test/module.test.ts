@@ -1,4 +1,4 @@
-import { describe, expect, it, vi, beforeEach } from 'vitest'
+import { describe, expect, it, vi, beforeEach } from 'vite-plus/test'
 import { makeFunctionReference } from 'convex/server'
 import { convexQueryKey } from '../src/runtime/utils/queryKey'
 import { resolveQueryOverlay } from '../src/runtime/utils/overlay'
@@ -12,18 +12,13 @@ import {
   shouldConsumeOAuthCode,
   storageKey,
 } from '../src/runtime/utils/authStorage'
-import {
-  resetAuthMutexesForTests,
-  withRefreshMutex,
-} from '../src/runtime/utils/authMutex'
+import { resetAuthMutexesForTests, withRefreshMutex } from '../src/runtime/utils/authMutex'
 
 const listTasks = makeFunctionReference<'query', Record<string, never>, Array<{ text: string }>>(
   'tasks:list',
 )
 
-const getTask = makeFunctionReference<'query', { id: string }, { text: string }>(
-  'tasks:get',
-)
+const getTask = makeFunctionReference<'query', { id: string }, { text: string }>('tasks:get')
 
 describe('convexQueryKey', () => {
   it('uses getFunctionName instead of String(query)', () => {
@@ -161,54 +156,31 @@ describe('skip does not call HttpClient.query', () => {
 
 describe('resolveAuthGatedArgs', () => {
   it('passes through when authenticated option is off', async () => {
-    const { resolveAuthGatedArgs } = await import(
-      '../src/runtime/utils/authGate'
-    )
+    const { resolveAuthGatedArgs } = await import('../src/runtime/utils/authGate')
+    expect(resolveAuthGatedArgs({}, { authenticated: false, isAuthenticated: false })).toEqual({})
     expect(
-      resolveAuthGatedArgs({}, { authenticated: false, isAuthenticated: false }),
-    ).toEqual({})
-    expect(
-      resolveAuthGatedArgs(
-        { id: '1' },
-        { authenticated: undefined, isAuthenticated: false },
-      ),
+      resolveAuthGatedArgs({ id: '1' }, { authenticated: undefined, isAuthenticated: false }),
     ).toEqual({ id: '1' })
   })
 
   it('skips when authenticated:true and Convex has not confirmed', async () => {
-    const { resolveAuthGatedArgs } = await import(
-      '../src/runtime/utils/authGate'
+    const { resolveAuthGatedArgs } = await import('../src/runtime/utils/authGate')
+    expect(resolveAuthGatedArgs({}, { authenticated: true, isAuthenticated: false })).toBe('skip')
+    expect(resolveAuthGatedArgs({ id: '1' }, { authenticated: true, isAuthenticated: false })).toBe(
+      'skip',
     )
-    expect(
-      resolveAuthGatedArgs({}, { authenticated: true, isAuthenticated: false }),
-    ).toBe('skip')
-    expect(
-      resolveAuthGatedArgs(
-        { id: '1' },
-        { authenticated: true, isAuthenticated: false },
-      ),
-    ).toBe('skip')
   })
 
   it('fetches when authenticated:true and Convex confirmed (SSR stamp)', async () => {
-    const { resolveAuthGatedArgs } = await import(
-      '../src/runtime/utils/authGate'
-    )
+    const { resolveAuthGatedArgs } = await import('../src/runtime/utils/authGate')
+    expect(resolveAuthGatedArgs({}, { authenticated: true, isAuthenticated: true })).toEqual({})
     expect(
-      resolveAuthGatedArgs({}, { authenticated: true, isAuthenticated: true }),
-    ).toEqual({})
-    expect(
-      resolveAuthGatedArgs(
-        { id: '1' },
-        { authenticated: true, isAuthenticated: true },
-      ),
+      resolveAuthGatedArgs({ id: '1' }, { authenticated: true, isAuthenticated: true }),
     ).toEqual({ id: '1' })
   })
 
   it('keeps caller skip over the auth gate', async () => {
-    const { resolveAuthGatedArgs } = await import(
-      '../src/runtime/utils/authGate'
-    )
+    const { resolveAuthGatedArgs } = await import('../src/runtime/utils/authGate')
     expect(
       resolveAuthGatedArgs('skip', {
         authenticated: true,
@@ -220,9 +192,7 @@ describe('resolveAuthGatedArgs', () => {
   it('keeps non-empty arg keys while internally auth-skipped', () => {
     // Keys must come from raw args, not effective 'skip' (which would map to {}).
     const raw = { id: 'task-1' }
-    expect(convexQueryKey(getTask, raw)).toBe(
-      'convex:tasks:get:{"id":"task-1"}',
-    )
+    expect(convexQueryKey(getTask, raw)).toBe('convex:tasks:get:{"id":"task-1"}')
     expect(convexQueryKey(getTask, raw)).not.toBe(convexQueryKey(getTask, 'skip'))
   })
 })
@@ -360,10 +330,8 @@ describe('resolveFetchToken', () => {
 
 describe('convex.server default', () => {
   it('defaults useConvexQuery server option from module config', () => {
-    const resolveServer = (
-      optionsServer: boolean | undefined,
-      moduleServer: boolean | undefined,
-    ) => optionsServer ?? moduleServer ?? true
+    const resolveServer = (optionsServer: boolean | undefined, moduleServer: boolean | undefined) =>
+      optionsServer ?? moduleServer ?? true
 
     expect(resolveServer(undefined, true)).toBe(true)
     expect(resolveServer(undefined, false)).toBe(false)
@@ -374,8 +342,9 @@ describe('convex.server default', () => {
 
 describe('authStorage helpers', () => {
   it('namespaces storage keys by deployment URL', () => {
-    expect(storageKey('__convexAuthJWT', 'https://happy-animal-123.convex.cloud'))
-      .toBe('__convexAuthJWT_httpshappyanimal123convexcloud')
+    expect(storageKey('__convexAuthJWT', 'https://happy-animal-123.convex.cloud')).toBe(
+      '__convexAuthJWT_httpshappyanimal123convexcloud',
+    )
   })
 
   it('no-ops readLocal/writeLocal when window is undefined (SSR)', async () => {
@@ -406,18 +375,17 @@ describe('authStorage helpers', () => {
 
   it('defaults cookie to convex_jwt when provider is convex-auth', () => {
     expect(resolveAuthCookieName({ provider: 'convex-auth' })).toBe('convex_jwt')
-    expect(resolveAuthCookieName({ provider: 'convex-auth', cookie: 'custom' }))
-      .toBe('custom')
+    expect(resolveAuthCookieName({ provider: 'convex-auth', cookie: 'custom' })).toBe('custom')
     expect(resolveAuthCookieName({ cookie: 'only-cookie' })).toBe('only-cookie')
     expect(resolveAuthCookieName(undefined)).toBeUndefined()
     expect(resolveAuthCookieName({})).toBeUndefined()
   })
 
   it('uses HttpOnly JWT cookie name when httpOnly is enabled', () => {
-    expect(resolveAuthCookieName({ provider: 'convex-auth', httpOnly: true }))
-      .toBe('__convexAuthJWT')
-    expect(resolveAuthCookieName({ httpOnly: true, cookie: 'custom' }))
-      .toBe('custom')
+    expect(resolveAuthCookieName({ provider: 'convex-auth', httpOnly: true })).toBe(
+      '__convexAuthJWT',
+    )
+    expect(resolveAuthCookieName({ httpOnly: true, cookie: 'custom' })).toBe('custom')
   })
 
   it('maps cookie values to an SSR token', () => {

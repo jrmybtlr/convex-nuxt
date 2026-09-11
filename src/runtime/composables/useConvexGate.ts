@@ -28,14 +28,8 @@ export function useConvexGate(): ConvexGate {
     isRefreshing: auth.isRefreshing,
     hasSsrSession: auth.hasSsrSession,
     showAuthedUi: auth.showAuthedUi,
-    showLoading: computed(
-      () => auth.isLoading.value && !auth.showAuthedUi.value,
-    ),
-    showSignedOut: computed(
-      () => !auth.showAuthedUi.value && !auth.isLoading.value,
-    ),
-    showRefreshing: computed(
-      () => auth.isAuthenticated.value && auth.isRefreshing.value,
-    ),
+    showLoading: computed(() => auth.isLoading.value && !auth.showAuthedUi.value),
+    showSignedOut: computed(() => !auth.showAuthedUi.value && !auth.isLoading.value),
+    showRefreshing: computed(() => auth.isAuthenticated.value && auth.isRefreshing.value),
   }
 }

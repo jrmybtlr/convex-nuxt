@@ -9,26 +9,18 @@ type MutexState = {
 }
 
 declare global {
-  // eslint-disable-next-line no-var
   var __convexNuxtAuthMutexes: Record<string, MutexState> | undefined
 }
 
-export async function withRefreshMutex<T>(
-  key: string,
-  callback: () => Promise<T>,
-): Promise<T> {
-  const lockManager
-    = typeof navigator !== 'undefined' ? navigator.locks : undefined
+export async function withRefreshMutex<T>(key: string, callback: () => Promise<T>): Promise<T> {
+  const lockManager = typeof navigator !== 'undefined' ? navigator.locks : undefined
   if (lockManager !== undefined) {
     return await lockManager.request(key, callback)
   }
   return await manualMutex(key, callback)
 }
 
-async function manualMutex<T>(
-  key: string,
-  callback: () => Promise<T>,
-): Promise<T> {
+async function manualMutex<T>(key: string, callback: () => Promise<T>): Promise<T> {
   return await new Promise<T>((resolve, reject) => {
     const wrapped = () =>
       callback()
@@ -52,10 +44,7 @@ function getMutexValue(key: string): MutexState {
   return mutex
 }
 
-async function enqueueCallbackForMutex(
-  key: string,
-  callback: () => Promise<void>,
-): Promise<void> {
+async function enqueueCallbackForMutex(key: string, callback: () => Promise<void>): Promise<void> {
   const mutex = getMutexValue(key)
   if (mutex.currentlyRunning === null) {
     globalThis.__convexNuxtAuthMutexes![key] = {
@@ -68,8 +57,7 @@ async function enqueueCallbackForMutex(
       }),
       waiting: [],
     }
-  }
-  else {
+  } else {
     globalThis.__convexNuxtAuthMutexes![key] = {
       ...mutex,
       waiting: [...mutex.waiting, callback],

@@ -22,8 +22,7 @@ async function submit() {
       password: password.value,
       flow: mode.value,
     })
-  }
-  catch {
+  } catch {
     // error surfaced via `error`
   }
 }
@@ -34,10 +33,7 @@ async function submit() {
     <h2 class="text-sm font-medium">
       {{ mode === 'signIn' ? 'Sign in' : 'Create account' }}
     </h2>
-    <form
-      class="mt-4 grid gap-3"
-      @submit.prevent="submit"
-    >
+    <form class="mt-4 grid gap-3" @submit.prevent="submit">
       <label class="grid gap-1 text-sm">
         <span class="text-zinc-500">Email</span>
         <input
@@ -46,7 +42,7 @@ async function submit() {
           required
           autocomplete="email"
           class="rounded-md border border-zinc-200 px-3 py-1.5 text-sm outline-none focus:border-zinc-400"
-        >
+        />
       </label>
       <label class="grid gap-1 text-sm">
         <span class="text-zinc-500">Password</span>
@@ -57,12 +53,9 @@ async function submit() {
           minlength="8"
           autocomplete="current-password"
           class="rounded-md border border-zinc-200 px-3 py-1.5 text-sm outline-none focus:border-zinc-400"
-        >
+        />
       </label>
-      <p
-        v-if="error"
-        class="text-sm text-red-700"
-      >
+      <p v-if="error" class="text-sm text-red-700">
         {{ displayError(error) }}
       </p>
       <div class="flex flex-wrap gap-2">
@@ -71,13 +64,7 @@ async function submit() {
           class="rounded-md border border-zinc-200 px-3 py-1.5 text-sm disabled:opacity-50"
           :disabled="pending"
         >
-          {{
-            pending
-              ? 'Working…'
-              : mode === 'signIn'
-                ? 'Sign in'
-                : 'Sign up'
-          }}
+          {{ pending ? 'Working…' : mode === 'signIn' ? 'Sign in' : 'Sign up' }}
         </button>
         <button
           type="button"

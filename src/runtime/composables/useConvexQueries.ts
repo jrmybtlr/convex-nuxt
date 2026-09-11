@@ -1,8 +1,4 @@
-import type {
-  FunctionArgs,
-  FunctionReference,
-  FunctionReturnType,
-} from 'convex/server'
+import type { FunctionArgs, FunctionReference, FunctionReturnType } from 'convex/server'
 import { getFunctionName } from 'convex/server'
 import type { Value } from 'convex/values'
 import { convexToJson } from 'convex/values'
@@ -17,19 +13,24 @@ import {
 } from 'vue'
 import { useConvexContext } from '../utils/context'
 
-export type ConvexQueriesRequest = Record<
-  string,
-  | {
-    query: FunctionReference<'query'>
-    args: Record<string, Value>
-  }
-  | 'skip'
->
+/** One entry in a {@link useConvexQueries} request map. */
+export type ConvexQueryRequestEntry<
+  Query extends FunctionReference<'query'> = FunctionReference<'query'>,
+> = {
+  query: Query
+  args: FunctionArgs<Query>
+}
+
+/**
+ * Request map for {@link useConvexQueries}.
+ * Values are `{ query, args }` or `'skip'`.
+ */
+export type ConvexQueriesRequest = Record<string, ConvexQueryRequestEntry | 'skip'>
 
 export type ConvexQueriesResult<Request extends ConvexQueriesRequest> = {
   [K in keyof Request]: Request[K] extends {
     query: infer Query
-    args: any
+    args: infer _Args
   }
     ? Query extends FunctionReference<'query'>
       ? FunctionReturnType<Query> | undefined | Error
@@ -64,9 +65,7 @@ export function useConvexQueries<Request extends ConvexQueriesRequest>(
   const results = shallowRef<Record<string, unknown>>({})
 
   if (import.meta.server || !ctx.client) {
-    return computed(
-      () => results.value as ConvexQueriesResult<Request>,
-    )
+    return computed(() => results.value as ConvexQueriesResult<Request>)
   }
 
   const client = ctx.client
@@ -99,11 +98,8 @@ export function useConvexQueries<Request extends ConvexQueriesRequest>(
       }
 
       const { query, args } = entry
-      const signature = subscriptionSignature(query, args)
-      if (
-        signatures.get(key) === signature
-        && unsubscribers.has(key)
-      ) {
+      const signature = subscriptionSignature(query, args as Record<string, Value>)
+      if (signatures.get(key) === signature && unsubscribers.has(key)) {
         continue
       }
 

@@ -13,13 +13,11 @@ export function createPendingErrorState() {
     error.value = null
     try {
       return await fn()
-    }
-    catch (cause) {
+    } catch (cause) {
       const err = cause instanceof Error ? cause : new Error(String(cause))
       error.value = err
       throw err
-    }
-    finally {
+    } finally {
       pendingCount.value--
     }
   }

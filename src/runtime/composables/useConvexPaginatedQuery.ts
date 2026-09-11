@@ -31,7 +31,7 @@ export type PaginatedQueryReference = FunctionReference<
   'query',
   'public',
   { paginationOpts: PaginationOptions },
-  PaginationResult<any>
+  PaginationResult<unknown>
 >
 
 export type PaginatedQueryArgs<Query extends PaginatedQueryReference> = Omit<
@@ -42,11 +42,7 @@ export type PaginatedQueryArgs<Query extends PaginatedQueryReference> = Omit<
 export type PaginatedQueryItem<Query extends PaginatedQueryReference> =
   FunctionReturnType<Query>['page'][number]
 
-export type PaginationStatus =
-  | 'LoadingFirstPage'
-  | 'CanLoadMore'
-  | 'LoadingMore'
-  | 'Exhausted'
+export type PaginationStatus = 'LoadingFirstPage' | 'CanLoadMore' | 'LoadingMore' | 'Exhausted'
 
 export interface UseConvexPaginatedQueryOptions {
   /** Items to load on the first page (and default for `loadMore`). */
@@ -87,23 +83,17 @@ type LivePaginatedResult<Item> = {
  * every loaded page stays reactive (React `usePaginatedQuery` parity). The SSR
  * snapshot hydrates the first page until the live subscription is ready.
  */
-export async function useConvexPaginatedQuery<
-  Query extends PaginatedQueryReference,
->(
+export async function useConvexPaginatedQuery<Query extends PaginatedQueryReference>(
   query: Query,
   args: MaybeRefOrGetter<PaginatedQueryArgs<Query> | 'skip'> = {} as PaginatedQueryArgs<Query>,
   options: UseConvexPaginatedQueryOptions,
 ): Promise<UseConvexPaginatedQueryReturn<Query>> {
   if (options.initialNumItems <= 0) {
-    throw new Error(
-      '[convex-nuxt] useConvexPaginatedQuery initialNumItems must be > 0',
-    )
+    throw new Error('[use-convex] useConvexPaginatedQuery initialNumItems must be > 0')
   }
 
   const runtimeConfig = useRuntimeConfig()
-  const defaultServer = (
-    runtimeConfig.public.convex as { server?: boolean } | undefined
-  )?.server
+  const defaultServer = (runtimeConfig.public.convex as { server?: boolean } | undefined)?.server
   const server = options.server ?? defaultServer ?? true
   const requireAuth = options.authenticated ?? false
   const ctx = useConvexContext()
@@ -146,15 +136,10 @@ export async function useConvexPaginatedQuery<
       }
       const token = options.token ?? ctx.ssrToken.value
       if (requireAuth && import.meta.client && !token) {
-        return readHydratedPayloadCache<PaginationResult<
-          PaginatedQueryItem<Query>
-        > | null>(key)
+        return readHydratedPayloadCache<PaginationResult<PaginatedQueryItem<Query>> | null>(key)
       }
       const http = ctx.createHttpClient({ token })
-      const result = await http.query(
-        query as never,
-        pageArgs as never,
-      )
+      const result = await http.query(query as never, pageArgs as never)
       return jsonToConvex(convexToJson(result as never)) as unknown as PaginationResult<
         PaginatedQueryItem<Query>
       >
@@ -165,9 +150,7 @@ export async function useConvexPaginatedQuery<
         () => toValue(args),
         () => options.token ?? ctx.ssrToken.value,
         () =>
-          requireAuth
-          && ctx.auth.isAuthenticated.value
-          && !!(options.token ?? ctx.ssrToken.value),
+          requireAuth && ctx.auth.isAuthenticated.value && !!(options.token ?? ctx.ssrToken.value),
       ],
     },
   )
@@ -257,12 +240,7 @@ export async function useConvexPaginatedQuery<
     }
 
     watch(
-      () =>
-        [
-          toValue(args),
-          options.initialNumItems,
-          ctx.auth.isAuthenticated.value,
-        ] as const,
+      () => [toValue(args), options.initialNumItems, ctx.auth.isAuthenticated.value] as const,
       subscribe,
       { immediate: true },
     )

@@ -1,8 +1,4 @@
-import type {
-  FunctionArgs,
-  FunctionReference,
-  FunctionReturnType,
-} from 'convex/server'
+import type { FunctionArgs, FunctionReference, FunctionReturnType } from 'convex/server'
 import type { OptimisticLocalStore } from 'convex/browser'
 import type { Value } from 'convex/values'
 import { compareValues, convexToJson } from 'convex/values'
@@ -16,15 +12,11 @@ import type {
  * Apply an optimistic update to every loaded page of a paginated query
  * (React `optimisticallyUpdateValueInPaginatedQuery` parity).
  */
-export function optimisticallyUpdateValueInPaginatedQuery<
-  Query extends PaginatedQueryReference,
->(
+export function optimisticallyUpdateValueInPaginatedQuery<Query extends PaginatedQueryReference>(
   localStore: OptimisticLocalStore,
   query: Query,
   args: PaginatedQueryArgs<Query>,
-  updateValue: (
-    currentValue: PaginatedQueryItem<Query>,
-  ) => PaginatedQueryItem<Query>,
+  updateValue: (currentValue: PaginatedQueryItem<Query>) => PaginatedQueryItem<Query>,
 ): void {
   const expectedArgs = JSON.stringify(convexToJson(args as Value))
 
@@ -40,15 +32,13 @@ export function optimisticallyUpdateValueInPaginatedQuery<
     }
     const value = queryResult.value
     if (
-      typeof value === 'object'
-      && value !== null
-      && Array.isArray((value as { page?: unknown }).page)
+      typeof value === 'object' &&
+      value !== null &&
+      Array.isArray((value as { page?: unknown }).page)
     ) {
       localStore.setQuery(query, queryResult.args, {
         ...value,
-        page: (value as { page: PaginatedQueryItem<Query>[] }).page.map(
-          updateValue,
-        ),
+        page: (value as { page: PaginatedQueryItem<Query>[] }).page.map(updateValue),
       })
     }
   }
@@ -71,11 +61,11 @@ export function insertAtTop<Query extends PaginatedQueryReference>(options: {
     }
     return Object.keys(argsToMatch).every(
       // @ts-expect-error both are plain objects
-      key => compareValues(argsToMatch[key], q.args[key]) === 0,
+      (key) => compareValues(argsToMatch[key], q.args[key]) === 0,
     )
   })
   const firstPage = matching.find(
-    q => (q.args as { paginationOpts: { cursor: unknown } }).paginationOpts.cursor === null,
+    (q) => (q.args as { paginationOpts: { cursor: unknown } }).paginationOpts.cursor === null,
   )
   if (firstPage === undefined || firstPage.value === undefined) {
     return
@@ -89,9 +79,7 @@ export function insertAtTop<Query extends PaginatedQueryReference>(options: {
 /**
  * Insert an item at the bottom of a paginated list only if the last page is loaded.
  */
-export function insertAtBottomIfLoaded<
-  Query extends PaginatedQueryReference,
->(options: {
+export function insertAtBottomIfLoaded<Query extends PaginatedQueryReference>(options: {
   paginatedQuery: Query
   argsToMatch?: Partial<PaginatedQueryArgs<Query>>
   localQueryStore: OptimisticLocalStore
@@ -105,12 +93,10 @@ export function insertAtBottomIfLoaded<
     }
     return Object.keys(argsToMatch).every(
       // @ts-expect-error both are plain objects
-      key => compareValues(argsToMatch[key], q.args[key]) === 0,
+      (key) => compareValues(argsToMatch[key], q.args[key]) === 0,
     )
   })
-  const lastPage = matching.find(
-    q => q.value !== undefined && q.value.isDone,
-  )
+  const lastPage = matching.find((q) => q.value !== undefined && q.value.isDone)
   if (lastPage === undefined || lastPage.value === undefined) {
     return
   }
@@ -133,9 +119,7 @@ type LoadedResult<Query extends FunctionReference<'query'>> = {
 /**
  * Insert an item at a sort-key position within loaded paginated pages.
  */
-export function insertAtPosition<
-  Query extends PaginatedQueryReference,
->(options: {
+export function insertAtPosition<Query extends PaginatedQueryReference>(options: {
   paginatedQuery: Query
   argsToMatch?: Partial<PaginatedQueryArgs<Query>>
   sortOrder: 'asc' | 'desc'
@@ -143,25 +127,17 @@ export function insertAtPosition<
   localQueryStore: OptimisticLocalStore
   item: PaginatedQueryItem<Query>
 }): void {
-  const {
-    paginatedQuery,
-    sortOrder,
-    sortKeyFromItem,
-    localQueryStore,
-    item,
-    argsToMatch,
-  } = options
+  const { paginatedQuery, sortOrder, sortKeyFromItem, localQueryStore, item, argsToMatch } = options
 
-  const queries: LocalQueryResult<Query>[] =
-    localQueryStore.getAllQueries(paginatedQuery)
+  const queries: LocalQueryResult<Query>[] = localQueryStore.getAllQueries(paginatedQuery)
 
   const queryGroups: Record<string, LocalQueryResult<Query>[]> = {}
   for (const query of queries) {
     if (
-      argsToMatch !== undefined
-      && !Object.keys(argsToMatch).every(
+      argsToMatch !== undefined &&
+      !Object.keys(argsToMatch).every(
         // @ts-expect-error both are plain objects
-        key => argsToMatch[key] === query.args[key],
+        (key) => argsToMatch[key] === query.args[key],
       )
     ) {
       continue
@@ -190,9 +166,7 @@ export function insertAtPosition<
   }
 }
 
-function insertAtPositionInPages<
-  Query extends PaginatedQueryReference,
->(options: {
+function insertAtPositionInPages<Query extends PaginatedQueryReference>(options: {
   pageQueries: LocalQueryResult<Query>[]
   paginatedQuery: Query
   sortOrder: 'asc' | 'desc'
@@ -200,26 +174,16 @@ function insertAtPositionInPages<
   localQueryStore: OptimisticLocalStore
   item: PaginatedQueryItem<Query>
 }): void {
-  const {
-    pageQueries,
-    sortOrder,
-    sortKeyFromItem,
-    localQueryStore,
-    item,
-    paginatedQuery,
-  } = options
+  const { pageQueries, sortOrder, sortKeyFromItem, localQueryStore, item, paginatedQuery } = options
 
   const insertedKey = sortKeyFromItem(item)
   const loadedPages: LoadedResult<Query>[] = pageQueries.filter(
-    (q): q is LoadedResult<Query> =>
-      q.value !== undefined && q.value.page.length > 0,
+    (q): q is LoadedResult<Query> => q.value !== undefined && q.value.page.length > 0,
   )
   const sortedPages = loadedPages.sort((a, b) => {
     const aKey = sortKeyFromItem(a.value.page[0]!)
     const bKey = sortKeyFromItem(b.value.page[0]!)
-    return sortOrder === 'asc'
-      ? compareValues(aKey, bKey)
-      : compareValues(bKey, aKey)
+    return sortOrder === 'asc' ? compareValues(aKey, bKey) : compareValues(bKey, aKey)
   })
 
   const firstLoadedPage = sortedPages[0]
@@ -262,7 +226,7 @@ function insertAtPositionInPages<
     return
   }
 
-  const successorPageIndex = sortedPages.findIndex(p =>
+  const successorPageIndex = sortedPages.findIndex((p) =>
     sortOrder === 'asc'
       ? compareValues(sortKeyFromItem(p.value.page[0]!), insertedKey) > 0
       : compareValues(sortKeyFromItem(p.value.page[0]!), insertedKey) < 0,
@@ -274,7 +238,7 @@ function insertAtPositionInPages<
   if (pageToUpdate === undefined) {
     return
   }
-  const indexWithinPage = pageToUpdate.value.page.findIndex(element =>
+  const indexWithinPage = pageToUpdate.value.page.findIndex((element) =>
     sortOrder === 'asc'
       ? compareValues(sortKeyFromItem(element), insertedKey) >= 0
       : compareValues(sortKeyFromItem(element), insertedKey) <= 0,

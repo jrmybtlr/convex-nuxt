@@ -35,9 +35,8 @@ export class CookieJar {
     const headers = response.headers as Headers & {
       getSetCookie?: () => string[]
     }
-    const lines: string[] = typeof headers.getSetCookie === 'function'
-      ? [...headers.getSetCookie()]
-      : []
+    const lines: string[] =
+      typeof headers.getSetCookie === 'function' ? [...headers.getSetCookie()] : []
     if (lines.length === 0) {
       const single = response.headers.get('set-cookie')
       if (single) {
@@ -63,9 +62,7 @@ export class CookieJar {
     if (this.store.size === 0) {
       return undefined
     }
-    return [...this.store.entries()]
-      .map(([name, value]) => `${name}=${value}`)
-      .join('; ')
+    return [...this.store.entries()].map(([name, value]) => `${name}=${value}`).join('; ')
   }
 
   clear(): void {
@@ -89,16 +86,15 @@ function parseEnvFile(path: string): Record<string, string> {
       const key = trimmed.slice(0, eq).trim()
       let value = trimmed.slice(eq + 1).trim()
       if (
-        (value.startsWith('"') && value.endsWith('"'))
-        || (value.startsWith('\'') && value.endsWith('\''))
+        (value.startsWith('"') && value.endsWith('"')) ||
+        (value.startsWith("'") && value.endsWith("'"))
       ) {
         value = value.slice(1, -1)
       }
       out[key] = value
     }
     return out
-  }
-  catch {
+  } catch {
     return {}
   }
 }
@@ -116,15 +112,13 @@ export function resolveConvexURL(): string {
   }
   const fromLocal = parseEnvFile(join(playgroundDir, '.env.local'))
   const fromEnv = parseEnvFile(join(playgroundDir, '.env'))
-  const url
-    = fromLocal.NUXT_PUBLIC_CONVEX_URL
-      ?? fromLocal.CONVEX_URL
-      ?? fromEnv.NUXT_PUBLIC_CONVEX_URL
-      ?? fromEnv.CONVEX_URL
+  const url =
+    fromLocal.NUXT_PUBLIC_CONVEX_URL ??
+    fromLocal.CONVEX_URL ??
+    fromEnv.NUXT_PUBLIC_CONVEX_URL ??
+    fromEnv.CONVEX_URL
   if (!url) {
-    throw new Error(
-      'Convex URL missing — set NUXT_PUBLIC_CONVEX_URL or run pnpm run dev:backend',
-    )
+    throw new Error('Convex URL missing — set NUXT_PUBLIC_CONVEX_URL or run pnpm run dev:backend')
   }
   return url
 }
@@ -172,10 +166,7 @@ export async function establishHttpOnlySession(
   }
 }
 
-export async function clearHttpOnlySession(
-  baseURL: string,
-  jar: CookieJar,
-): Promise<void> {
+export async function clearHttpOnlySession(baseURL: string, jar: CookieJar): Promise<void> {
   const cookie = jar.header()
   const res = await fetch(`${baseURL}/api/convex/auth/session`, {
     method: 'DELETE',
@@ -211,10 +202,7 @@ export async function fetchWithJar(
   return res
 }
 
-export function authedConvexClient(
-  convexUrl: string,
-  token: string,
-): ConvexHttpClient {
+export function authedConvexClient(convexUrl: string, token: string): ConvexHttpClient {
   const http = new ConvexHttpClient(convexUrl)
   http.setAuth(token)
   return http

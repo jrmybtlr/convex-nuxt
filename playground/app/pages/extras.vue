@@ -8,17 +8,16 @@ const {
   data: snapshot,
   pending: snapshotPending,
   refresh,
-} = await useConvexQuery(api.tasks.list, {}, {
-  live: false,
-  authenticated: true,
-})
+} = await useConvexQuery(
+  api.tasks.list,
+  {},
+  {
+    live: false,
+    authenticated: true,
+  },
+)
 
-const {
-  results,
-  status,
-  isLoading,
-  loadMore,
-} = await useConvexPaginatedQuery(
+const { results, status, isLoading, loadMore } = await useConvexPaginatedQuery(
   api.tasks.listPaginated,
   {},
   { initialNumItems: 5, authenticated: true },
@@ -35,8 +34,7 @@ async function runShout() {
   }
   try {
     showToast(await shout({ text }))
-  }
-  catch (cause: unknown) {
+  } catch (cause: unknown) {
     const err = cause as { message?: string }
     showToast(err.message ?? 'Shout failed')
   }
@@ -47,48 +45,32 @@ const connection = useConvexConnectionState()
 
 <template>
   <main class="py-10">
-    <h1 class="text-xl font-medium tracking-tight">
-      Extras
-    </h1>
+    <h1 class="text-xl font-medium tracking-tight">Extras</h1>
     <p class="mt-3 text-sm leading-relaxed text-zinc-500">
       Demos for <code>live: false</code>, <code>useConvexPaginatedQuery</code>,
-      <code>useConvexAction</code>, and <code>useConvexConnectionState</code>.
-      File uploads live on
+      <code>useConvexAction</code>, and <code>useConvexConnectionState</code>. File uploads live on
       <NuxtLink
         to="/files"
         class="underline decoration-zinc-300 underline-offset-2 hover:text-zinc-800"
       >
-        Files
-      </NuxtLink>.
-      Sign in on
-      <NuxtLink
-        to="/"
-        class="underline decoration-zinc-300 underline-offset-2 hover:text-zinc-800"
-      >
+        Files </NuxtLink
+      >. Sign in on
+      <NuxtLink to="/" class="underline decoration-zinc-300 underline-offset-2 hover:text-zinc-800">
         Live
       </NuxtLink>
       first.
     </p>
 
-    <p
-      v-if="!showAuthedUi"
-      class="mt-6 text-sm text-zinc-400"
-    >
-      Not signed in.
-    </p>
+    <p v-if="!showAuthedUi" class="mt-6 text-sm text-zinc-400">Not signed in.</p>
 
     <template v-else>
       <section class="mt-8 rounded-lg border border-zinc-200 p-4">
-        <h2 class="text-sm font-medium">
-          Connection
-        </h2>
+        <h2 class="text-sm font-medium">Connection</h2>
         <pre class="mt-3 overflow-x-auto rounded-md bg-zinc-50 p-3 text-xs">{{ connection }}</pre>
       </section>
 
       <section class="mt-6 rounded-lg border border-zinc-200 p-4">
-        <h2 class="text-sm font-medium">
-          live: false snapshot
-        </h2>
+        <h2 class="text-sm font-medium">live: false snapshot</h2>
         <button
           type="button"
           class="mt-3 rounded-md border border-zinc-200 px-3 py-1.5 text-sm disabled:opacity-50"
@@ -97,16 +79,8 @@ const connection = useConvexConnectionState()
         >
           Refresh HttpClient
         </button>
-        <p
-          v-if="snapshotPending"
-          class="mt-3 text-sm text-zinc-400"
-        >
-          Loading…
-        </p>
-        <ul
-          v-else
-          class="mt-3 text-sm"
-        >
+        <p v-if="snapshotPending" class="mt-3 text-sm text-zinc-400">Loading…</p>
+        <ul v-else class="mt-3 text-sm">
           <li
             v-for="task in snapshot ?? []"
             :key="task._id"
@@ -118,12 +92,8 @@ const connection = useConvexConnectionState()
       </section>
 
       <section class="mt-6 rounded-lg border border-zinc-200 p-4">
-        <h2 class="text-sm font-medium">
-          Paginated list
-        </h2>
-        <p class="mt-1 text-sm text-zinc-500">
-          Status: {{ status }} · {{ results.length }} items
-        </p>
+        <h2 class="text-sm font-medium">Paginated list</h2>
+        <p class="mt-1 text-sm text-zinc-500">Status: {{ status }} · {{ results.length }} items</p>
         <ul class="mt-3 text-sm">
           <li
             v-for="task in results"
@@ -144,17 +114,12 @@ const connection = useConvexConnectionState()
       </section>
 
       <section class="mt-6 mb-8 rounded-lg border border-zinc-200 p-4">
-        <h2 class="text-sm font-medium">
-          useConvexAction
-        </h2>
-        <form
-          class="mt-4 flex flex-wrap gap-2"
-          @submit.prevent="runShout"
-        >
+        <h2 class="text-sm font-medium">useConvexAction</h2>
+        <form class="mt-4 flex flex-wrap gap-2" @submit.prevent="runShout">
           <input
             v-model="shoutInput"
             class="min-w-0 flex-1 rounded-md border border-zinc-200 px-3 py-1.5 text-sm outline-none focus:border-zinc-400"
-          >
+          />
           <button
             type="submit"
             class="rounded-md border border-zinc-200 px-3 py-1.5 text-sm disabled:opacity-50"

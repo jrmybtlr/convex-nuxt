@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 import { computed, ref } from 'vue'
 import { makeFunctionReference } from 'convex/server'
 import type { ConvexNuxtContext } from '../src/runtime/utils/context'
@@ -6,14 +6,10 @@ import type { ConvexNuxtContext } from '../src/runtime/utils/context'
 const generateUploadUrlFn = makeFunctionReference<
   'mutation',
   Record<string, never>,
-  { url: string, key: string }
+  { url: string; key: string }
 >('r2:generateUploadUrl')
 
-const syncMetadataFn = makeFunctionReference<
-  'mutation',
-  { key: string },
-  null
->('r2:syncMetadata')
+const syncMetadataFn = makeFunctionReference<'mutation', { key: string }, null>('r2:syncMetadata')
 
 function makeCtx(overrides: Partial<ConvexNuxtContext> = {}): ConvexNuxtContext {
   return {
@@ -103,9 +99,7 @@ describe('useConvexR2Upload', () => {
       useConvexContext: () => ctx,
     }))
 
-    const { useConvexR2Upload } = await import(
-      '../src/runtime/composables/useConvexR2Upload'
-    )
+    const { useConvexR2Upload } = await import('../src/runtime/composables/useConvexR2Upload')
     const { upload, pending, error, progress } = useConvexR2Upload({
       generateUploadUrl: generateUploadUrlFn,
       syncMetadata: syncMetadataFn,
@@ -129,10 +123,7 @@ describe('useConvexR2Upload', () => {
 
     const xhr = MockXHR.instances[0]!
     expect(xhr.open).toHaveBeenCalledWith('PUT', 'https://r2.example/signed')
-    expect(xhr.setRequestHeader).toHaveBeenCalledWith(
-      'Content-Type',
-      'text/plain',
-    )
+    expect(xhr.setRequestHeader).toHaveBeenCalledWith('Content-Type', 'text/plain')
     expect(xhr.send).toHaveBeenCalledWith(file)
   })
 
@@ -155,9 +146,7 @@ describe('useConvexR2Upload', () => {
       useConvexContext: () => ctx,
     }))
 
-    const { useConvexR2Upload } = await import(
-      '../src/runtime/composables/useConvexR2Upload'
-    )
+    const { useConvexR2Upload } = await import('../src/runtime/composables/useConvexR2Upload')
     const { upload, error } = useConvexR2Upload({
       generateUploadUrl: generateUploadUrlFn,
       syncMetadata: syncMetadataFn,
@@ -174,17 +163,13 @@ describe('useConvexR2Upload', () => {
       useConvexContext: () => ctx,
     }))
 
-    const { useConvexR2Upload } = await import(
-      '../src/runtime/composables/useConvexR2Upload'
-    )
+    const { useConvexR2Upload } = await import('../src/runtime/composables/useConvexR2Upload')
     const { upload } = useConvexR2Upload({
       generateUploadUrl: generateUploadUrlFn,
       syncMetadata: syncMetadataFn,
     })
 
-    await expect(upload(new File(['x'], 'x.bin'))).rejects.toThrow(
-      /only run in the browser/,
-    )
+    await expect(upload(new File(['x'], 'x.bin'))).rejects.toThrow(/only run in the browser/)
   })
 
   it('rejects malformed generateUploadUrl payloads', async () => {
@@ -195,16 +180,12 @@ describe('useConvexR2Upload', () => {
       useConvexContext: () => ctx,
     }))
 
-    const { useConvexR2Upload } = await import(
-      '../src/runtime/composables/useConvexR2Upload'
-    )
+    const { useConvexR2Upload } = await import('../src/runtime/composables/useConvexR2Upload')
     const { upload } = useConvexR2Upload({
       generateUploadUrl: generateUploadUrlFn,
       syncMetadata: syncMetadataFn,
     })
 
-    await expect(upload(new File(['x'], 'x.bin'))).rejects.toThrow(
-      /must return `\{ url, key \}`/,
-    )
+    await expect(upload(new File(['x'], 'x.bin'))).rejects.toThrow(/must return `\{ url, key \}`/)
   })
 })

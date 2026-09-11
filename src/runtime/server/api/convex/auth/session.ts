@@ -1,39 +1,31 @@
 import { ConvexHttpClient } from 'convex/browser'
 import { makeFunctionReference } from 'convex/server'
-import {
-  createError,
-  defineEventHandler,
-  readBody,
-} from 'h3'
+import { createError, defineEventHandler, readBody } from 'h3'
 import { useRuntimeConfig } from 'nitropack/runtime'
-import {
-  readHttpOnlyJwt,
-  readHttpOnlyRefresh,
-  setAuthCookies,
-} from '../../../authCookies'
+import { readHttpOnlyJwt, readHttpOnlyRefresh, setAuthCookies } from '../../../authCookies'
 import { isHttpOnlyAuth, type ConvexAuthConfig } from '../../../../utils/authStorage'
 import { assertSameOrigin } from '../../../sameOrigin'
+import { MISSING_URL_HINT } from '../../../../utils/errors'
 
-type AuthTokens = { token: string, refreshToken: string }
+type AuthTokens = { token: string; refreshToken: string }
 
 type SignInActionResult = {
   tokens?: AuthTokens | null
 }
 
-const authSignIn = makeFunctionReference<
-  'action',
-  { refreshToken?: string },
-  SignInActionResult
->('auth:signIn')
+const authSignIn = makeFunctionReference<'action', { refreshToken?: string }, SignInActionResult>(
+  'auth:signIn',
+)
 
 function convexUrl(event: Parameters<typeof useRuntimeConfig>[0]): string {
   const config = useRuntimeConfig(event)
-  const url = (config.public?.convex as { url?: string } | undefined)?.url
-    ?? process.env.NUXT_PUBLIC_CONVEX_URL
+  const url =
+    (config.public?.convex as { url?: string } | undefined)?.url ??
+    process.env.NUXT_PUBLIC_CONVEX_URL
   if (!url) {
     throw createError({
       statusCode: 500,
-      message: 'Convex URL is not configured',
+      message: MISSING_URL_HINT,
     })
   }
   return url
@@ -41,8 +33,7 @@ function convexUrl(event: Parameters<typeof useRuntimeConfig>[0]): string {
 
 function requireHttpOnly(event: Parameters<typeof useRuntimeConfig>[0]) {
   const config = useRuntimeConfig(event)
-  const auth = (config.public?.convex as { auth?: ConvexAuthConfig } | undefined)
-    ?.auth
+  const auth = (config.public?.convex as { auth?: ConvexAuthConfig } | undefined)?.auth
   if (!isHttpOnlyAuth(auth)) {
     throw createError({
       statusCode: 404,
@@ -116,8 +107,7 @@ export default defineEventHandler(async (event) => {
           refreshToken: tokens.refreshToken,
         })
         return { token: tokens.token }
-      }
-      catch {
+      } catch {
         setAuthCookies(event, { token: null })
         return { token: null }
       }

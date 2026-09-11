@@ -1,13 +1,11 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 import { computed, ref } from 'vue'
 import { makeFunctionReference } from 'convex/server'
 import type { ConvexNuxtContext } from '../src/runtime/utils/context'
 
-const generateUploadUrlFn = makeFunctionReference<
-  'mutation',
-  Record<string, never>,
-  string
->('files:generateUploadUrl')
+const generateUploadUrlFn = makeFunctionReference<'mutation', Record<string, never>, string>(
+  'files:generateUploadUrl',
+)
 
 const saveFileFn = makeFunctionReference<
   'mutation',
@@ -107,9 +105,7 @@ describe('useConvexFileUpload', () => {
       useConvexContext: () => ctx,
     }))
 
-    const { useConvexFileUpload } = await import(
-      '../src/runtime/composables/useConvexFileUpload'
-    )
+    const { useConvexFileUpload } = await import('../src/runtime/composables/useConvexFileUpload')
     const { upload, pending, error, progress } = useConvexFileUpload({
       generateUploadUrl: generateUploadUrlFn,
       saveFile: saveFileFn,
@@ -136,18 +132,13 @@ describe('useConvexFileUpload', () => {
 
     const xhr = MockXHR.instances[0]!
     expect(xhr.open).toHaveBeenCalledWith('POST', 'https://upload.example/post')
-    expect(xhr.setRequestHeader).toHaveBeenCalledWith(
-      'Content-Type',
-      'text/plain',
-    )
+    expect(xhr.setRequestHeader).toHaveBeenCalledWith('Content-Type', 'text/plain')
     expect(xhr.send).toHaveBeenCalledWith(file)
   })
 
   it('surfaces upload HTTP failures', async () => {
     const ctx = makeCtx()
-    clientMocks(ctx.client).mutation = vi
-      .fn()
-      .mockResolvedValue('https://upload.example/post')
+    clientMocks(ctx.client).mutation = vi.fn().mockResolvedValue('https://upload.example/post')
 
     MockXHR.impl = (xhr) => {
       queueMicrotask(() => {
@@ -161,9 +152,7 @@ describe('useConvexFileUpload', () => {
       useConvexContext: () => ctx,
     }))
 
-    const { useConvexFileUpload } = await import(
-      '../src/runtime/composables/useConvexFileUpload'
-    )
+    const { useConvexFileUpload } = await import('../src/runtime/composables/useConvexFileUpload')
     const { upload, error } = useConvexFileUpload({
       generateUploadUrl: generateUploadUrlFn,
       saveFile: saveFileFn,
@@ -180,9 +169,7 @@ describe('useConvexFileUpload', () => {
       useConvexContext: () => ctx,
     }))
 
-    const { useConvexFileUpload } = await import(
-      '../src/runtime/composables/useConvexFileUpload'
-    )
+    const { useConvexFileUpload } = await import('../src/runtime/composables/useConvexFileUpload')
     const { upload } = useConvexFileUpload({
       generateUploadUrl: generateUploadUrlFn,
       saveFile: saveFileFn,

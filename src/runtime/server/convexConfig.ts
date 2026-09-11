@@ -12,14 +12,11 @@ export interface ConvexPublicConfig {
 }
 
 /** Read `runtimeConfig.public.convex`, or `undefined` outside a Nitro request. */
-export function readConvexConfig(
-  event?: H3Event,
-): ConvexPublicConfig | undefined {
+export function readConvexConfig(event?: H3Event): ConvexPublicConfig | undefined {
   try {
     const config = useRuntimeConfig(event)
     return config.public?.convex as ConvexPublicConfig | undefined
-  }
-  catch {
+  } catch {
     return undefined
   }
 }

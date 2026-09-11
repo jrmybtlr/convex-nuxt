@@ -1,11 +1,5 @@
 import { navigateTo } from 'nuxt/app'
-import {
-  computed,
-  ref,
-  watch,
-  type ComputedRef,
-  type Ref,
-} from 'vue'
+import { computed, ref, watch, type ComputedRef, type Ref } from 'vue'
 import { useConvexAuth } from './useConvexAuth'
 import { tryUseConvexContext } from '../utils/context'
 
@@ -37,8 +31,7 @@ export function useAuthToken(): ComputedRef<string | null> {
         token.value = claims.token
         return
       }
-    }
-    catch {
+    } catch {
       // Client may be disabled / closed.
     }
 
@@ -55,18 +48,13 @@ export function useAuthToken(): ComputedRef<string | null> {
 
     try {
       token.value = (await fetchToken({ forceRefreshToken: false })) ?? null
-    }
-    catch {
+    } catch {
       token.value = null
     }
   }
 
   watch(
-    [
-      () => auth.isAuthenticated.value,
-      () => auth.isRefreshing.value,
-      () => auth.isLoading.value,
-    ],
+    [() => auth.isAuthenticated.value, () => auth.isRefreshing.value, () => auth.isLoading.value],
     () => {
       void refresh()
     },
@@ -87,9 +75,11 @@ export function useAuthToken(): ComputedRef<string | null> {
  * })
  * ```
  */
-export function requireConvexAuthMiddleware(options: {
-  redirectTo?: string
-} = {}): ReturnType<typeof navigateTo> | void {
+export function requireConvexAuthMiddleware(
+  options: {
+    redirectTo?: string
+  } = {},
+): ReturnType<typeof navigateTo> | undefined {
   const redirectTo = options.redirectTo ?? '/login'
   const ctx = tryUseConvexContext()
   if (!ctx) {

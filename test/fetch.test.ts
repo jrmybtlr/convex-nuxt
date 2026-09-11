@@ -1,18 +1,13 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 import { makeFunctionReference } from 'convex/server'
 import type { H3Event } from 'h3'
 
-const {
-  query,
-  mutation,
-  action,
-  createHttpClient,
-} = vi.hoisted(() => {
+const { query, mutation, action, createHttpClient } = vi.hoisted(() => {
   const query = vi.fn()
   const mutation = vi.fn()
   const action = vi.fn()
   const createHttpClient = vi.fn(
-    (_url: string, _options?: { token?: string, skipConvexDeploymentUrlCheck?: boolean }) => ({
+    (_url: string, _options?: { token?: string; skipConvexDeploymentUrlCheck?: boolean }) => ({
       query,
       mutation,
       action,
@@ -37,23 +32,13 @@ vi.mock('h3', async () => {
   }
 })
 
-function mockRuntimeConfig(value: {
-  public: { convex: Record<string, unknown> }
-}) {
-  return value as unknown as ReturnType<
-    typeof import('nitropack/runtime').useRuntimeConfig
-  >
+function mockRuntimeConfig(value: { public: { convex: Record<string, unknown> } }) {
+  return value as unknown as ReturnType<typeof import('nitropack/runtime').useRuntimeConfig>
 }
 
-const listTasks = makeFunctionReference<'query', Record<string, never>, string[]>(
-  'tasks:list',
-)
-const createTask = makeFunctionReference<'mutation', { text: string }, string>(
-  'tasks:create',
-)
-const runThing = makeFunctionReference<'action', { n: number }, number>(
-  'tasks:run',
-)
+const listTasks = makeFunctionReference<'query', Record<string, never>, string[]>('tasks:list')
+const createTask = makeFunctionReference<'mutation', { text: string }, string>('tasks:create')
+const runThing = makeFunctionReference<'action', { n: number }, number>('tasks:run')
 
 describe('fetch resolveUrl / resolveToken', () => {
   beforeEach(() => {
@@ -71,9 +56,7 @@ describe('fetch resolveUrl / resolveToken', () => {
 
   it('prefers options.url', async () => {
     const { resolveUrl } = await import('../src/runtime/server/fetch')
-    expect(resolveUrl({ url: 'https://opts.convex.cloud' })).toBe(
-      'https://opts.convex.cloud',
-    )
+    expect(resolveUrl({ url: 'https://opts.convex.cloud' })).toBe('https://opts.convex.cloud')
   })
 
   it('falls back to runtimeConfig then env', async () => {
@@ -166,33 +149,45 @@ describe('fetchQuery / fetchMutation / fetchAction', () => {
   })
 
   it('wires HttpClient with resolved URL and token', async () => {
-    const {
-      fetchQuery,
-      fetchMutation,
-      fetchAction,
-    } = await import('../src/runtime/server/fetch')
+    const { fetchQuery, fetchMutation, fetchAction } = await import('../src/runtime/server/fetch')
 
-    await fetchQuery(listTasks, {}, {
-      url: 'https://example.convex.cloud',
-      token: 'jwt',
-      skipConvexDeploymentUrlCheck: true,
-    })
+    await fetchQuery(
+      listTasks,
+      {},
+      {
+        url: 'https://example.convex.cloud',
+        token: 'jwt',
+        skipConvexDeploymentUrlCheck: true,
+      },
+    )
     expect(createHttpClient).toHaveBeenCalledWith('https://example.convex.cloud', {
       token: 'jwt',
       skipConvexDeploymentUrlCheck: true,
     })
     expect(query).toHaveBeenCalledWith(listTasks, {})
 
-    await fetchMutation(createTask, { text: 'hi' }, {
-      url: 'https://example.convex.cloud',
-    })
-    expect(mutation).toHaveBeenCalledWith(createTask, { text: 'hi' }, {
-      skipQueue: true,
-    })
+    await fetchMutation(
+      createTask,
+      { text: 'hi' },
+      {
+        url: 'https://example.convex.cloud',
+      },
+    )
+    expect(mutation).toHaveBeenCalledWith(
+      createTask,
+      { text: 'hi' },
+      {
+        skipQueue: true,
+      },
+    )
 
-    await fetchAction(runThing, { n: 1 }, {
-      url: 'https://example.convex.cloud',
-    })
+    await fetchAction(
+      runThing,
+      { n: 1 },
+      {
+        url: 'https://example.convex.cloud',
+      },
+    )
     expect(action).toHaveBeenCalledWith(runThing, { n: 1 })
   })
 })

@@ -1,8 +1,4 @@
-import type {
-  FunctionArgs,
-  FunctionReference,
-  FunctionReturnType,
-} from 'convex/server'
+import type { FunctionArgs, FunctionReference, FunctionReturnType } from 'convex/server'
 import type { OptimisticUpdate } from 'convex/browser'
 import { toValue, type MaybeRefOrGetter } from 'vue'
 import { useConvexContext } from '../utils/context'
@@ -10,9 +6,7 @@ import { createPendingErrorState } from '../utils/pendingError'
 
 export type { OptimisticUpdate }
 
-export interface UseConvexMutationOptions<
-  Mutation extends FunctionReference<'mutation'>,
-> {
+export interface UseConvexMutationOptions<Mutation extends FunctionReference<'mutation'>> {
   /**
    * Local query update applied while the mutation is in flight.
    * Passed through to `ConvexClient.mutation` → `BaseConvexClient`.
@@ -40,18 +34,14 @@ export function useConvexMutation<Mutation extends FunctionReference<'mutation'>
     args: MaybeRefOrGetter<FunctionArgs<Mutation>> = {} as FunctionArgs<Mutation>,
   ): Promise<FunctionReturnType<Mutation>> => {
     if (import.meta.server || !ctx.client) {
-      throw new Error(
-        '[convex-nuxt] useConvexMutation can only run in the browser.',
-      )
+      throw new Error('[use-convex] useConvexMutation can only run in the browser.')
     }
     return await withPending(async () => {
       const resolved = toValue(args)
       return await ctx.client!.mutation(
         mutation,
         resolved,
-        options.optimisticUpdate
-          ? { optimisticUpdate: options.optimisticUpdate }
-          : undefined,
+        options.optimisticUpdate ? { optimisticUpdate: options.optimisticUpdate } : undefined,
       )
     })
   }

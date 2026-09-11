@@ -8,7 +8,7 @@ export function useConvex(): ConvexClient {
   const ctx = useConvexContext()
   if (!ctx.client) {
     throw new Error(
-      '[convex-nuxt] useConvex() is only available in the browser. Use fetchQuery on the server.',
+      '[use-convex] useConvex() is only available in the browser. Use fetchQuery on the server.',
     )
   }
   return ctx.client

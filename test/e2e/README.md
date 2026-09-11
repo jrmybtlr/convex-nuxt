@@ -31,10 +31,10 @@ pnpm test:e2e
 
 Env:
 
-| Variable | Default | Role |
-|----------|---------|------|
-| `E2E_CONVEX` | unset | Must be `1` or tests are skipped (CI stays offline) |
-| `E2E_BASE_URL` | `http://localhost:3000` | Playground origin |
+| Variable                                | Default                      | Role                                                 |
+| --------------------------------------- | ---------------------------- | ---------------------------------------------------- |
+| `E2E_CONVEX`                            | unset                        | Must be `1` or tests are skipped (CI stays offline)  |
+| `E2E_BASE_URL`                          | `http://localhost:3000`      | Playground origin                                    |
 | `NUXT_PUBLIC_CONVEX_URL` / `CONVEX_URL` | from `playground/.env.local` | Convex deployment for `auth:signIn` + task mutations |
 
 The full-flow test rolls back by deleting tasks whose text starts with `e2e:<runId>:`. Auth users are left behind (no user-delete API); unique emails avoid collisions.

@@ -31,7 +31,7 @@ export type ConvexAuthConfig = {
 }
 
 export function storageNamespace(url: string): string {
-  return url.replace(/[^a-zA-Z0-9]/g, '')
+  return url.replace(/[^a-z0-9]/gi, '')
 }
 
 export function storageKey(base: string, url: string): string {
@@ -78,18 +78,14 @@ export function resolveAuthCookieName(auth?: ConvexAuthConfig): string | undefin
   return undefined
 }
 
-export function resolveAuthPresentCookieName(
-  auth?: ConvexAuthConfig,
-): string | undefined {
+export function resolveAuthPresentCookieName(auth?: ConvexAuthConfig): string | undefined {
   if (!auth?.httpOnly) {
     return undefined
   }
   return auth.presentCookie ?? DEFAULT_AUTH_PRESENT_COOKIE
 }
 
-export function resolveAuthRefreshCookieName(
-  auth?: ConvexAuthConfig,
-): string | undefined {
+export function resolveAuthRefreshCookieName(auth?: ConvexAuthConfig): string | undefined {
   if (!auth?.httpOnly) {
     return undefined
   }
@@ -101,9 +97,7 @@ export function isHttpOnlyAuth(auth?: ConvexAuthConfig): boolean {
 }
 
 /** Empty / missing cookies are not a session. */
-export function cookieValueToSsrToken(
-  value: string | null | undefined,
-): string | undefined {
+export function cookieValueToSsrToken(value: string | null | undefined): string | undefined {
   return value || undefined
 }
 
@@ -113,8 +107,7 @@ export function readLocal(key: string): string | null {
   }
   try {
     return window.localStorage.getItem(key)
-  }
-  catch {
+  } catch {
     return null
   }
 }
@@ -126,12 +119,10 @@ export function writeLocal(key: string, value: string | null): void {
   try {
     if (value === null) {
       window.localStorage.removeItem(key)
-    }
-    else {
+    } else {
       window.localStorage.setItem(key, value)
     }
-  }
-  catch {
+  } catch {
     // ignore quota / private mode
   }
 }
