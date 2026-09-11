@@ -1,13 +1,13 @@
-# Fix NUXT_B8017: use-convex could not be loaded
+# Better Convex file upload management
 
-- [x] Identify why Nuxt cannot resolve `modules: ['use-convex']` in the playground
-- [x] Point playground at local module source (`../src/module`)
-- [x] Verify Nuxt can initialize the playground after the change
+- [x] Add `useConvexFileUpload` composable + module auto-import/types
+- [x] Add files schema + auth-gated generateUploadUrl/save/list/remove in playground
+- [x] Wire upload/list/delete demo into playground extras
+- [x] README docs + unit tests for upload success/failure/SSR guard
 
 ## Review
 
-`NUXT_B8017` happened because the playground loaded the module by package name (`use-convex`). After the rename from `@convex/nuxt`, Nuxt's resolver could not find that name (and cached the miss in the long-running `nuxt dev` process).
-
-The playground now uses `../src/module`, which is the Nuxt module-starter pattern and matches the test fixtures. `nuxi prepare playground` succeeds, and the running playground restarted without the error.
-
-Consumer apps still install with `modules: ['use-convex']` as documented in the README.
+- `useConvexFileUpload` wraps generateUploadUrl → XHR POST (with progress) → saveFile
+- Playground `files` table/functions enforce auth + ownership; extras page demos the flow
+- Unit tests cover happy path, HTTP failure, and missing browser client; convex-test covers auth/CRUD
+- README documents the composable and warns against unauthenticated `generateUploadUrl`

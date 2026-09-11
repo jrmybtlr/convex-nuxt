@@ -53,7 +53,21 @@ const connection = useConvexConnectionState()
     <p class="mt-3 text-sm leading-relaxed text-zinc-500">
       Demos for <code>live: false</code>, <code>useConvexPaginatedQuery</code>,
       <code>useConvexAction</code>, and <code>useConvexConnectionState</code>.
-      Sign in on <NuxtLink to="/" class="underline decoration-zinc-300 underline-offset-2 hover:text-zinc-800">Live</NuxtLink> first.
+      File uploads live on
+      <NuxtLink
+        to="/files"
+        class="underline decoration-zinc-300 underline-offset-2 hover:text-zinc-800"
+      >
+        Files
+      </NuxtLink>.
+      Sign in on
+      <NuxtLink
+        to="/"
+        class="underline decoration-zinc-300 underline-offset-2 hover:text-zinc-800"
+      >
+        Live
+      </NuxtLink>
+      first.
     </p>
 
     <p
