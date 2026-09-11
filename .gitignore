@@ -7,6 +7,9 @@ dist
 !.env.example
 .DS_Store
 playground/.convex/local/default/convex_local_backend.sqlite3
+playground/.agents/
+playground/.claude/
+tasks/
 test/fixtures/**/node_modules
 test/fixtures/**/.nuxt
 test/fixtures/**/.output
