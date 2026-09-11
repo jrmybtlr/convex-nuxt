@@ -1,4 +1,4 @@
-# @convex/nuxt
+# use-convex
 
 First-class [Convex](https://convex.dev) integration for [Nuxt 4](https://nuxt.com).
 
@@ -7,13 +7,13 @@ SSR snapshots hydrate through the Nuxt payload, then the browser overlays a live
 ## Install
 
 ```bash
-pnpm add @convex/nuxt convex
+pnpm add use-convex convex
 ```
 
 ```ts
 // nuxt.config.ts
 export default defineNuxtConfig({
-  modules: ['@convex/nuxt'],
+  modules: ['use-convex'],
   convex: {
     url: process.env.NUXT_PUBLIC_CONVEX_URL,
   },
@@ -314,7 +314,7 @@ Releases run from `.github/workflows/release.yml` when commits land on `main`. V
 | `feat!:` or `BREAKING CHANGE:` | major |
 | `chore:`, `docs:`, `ci:`, … | none |
 
-semantic-release publishes `@convex/nuxt` to npm, tags `vX.Y.Z`, and opens a GitHub Release. The repo `package.json` version is not committed back.
+semantic-release publishes `use-convex` to npm, tags `vX.Y.Z`, and opens a GitHub Release. The repo `package.json` version is not committed back.
 
 ## License
 

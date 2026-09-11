@@ -1,5 +1,5 @@
 {
-  "name": "@convex/nuxt",
+  "name": "use-convex",
   "version": "0.0.2",
   "description": "First-class Convex integration for Nuxt",
   "type": "module",

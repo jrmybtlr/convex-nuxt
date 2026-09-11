@@ -11,7 +11,7 @@
   "dependencies": {
     "@auth/core": "0.41.3",
     "@convex-dev/auth": "^0.0.95",
-    "@convex/nuxt": "workspace:*",
+    "use-convex": "workspace:*",
     "convex": "^1.45.0",
     "convex-helpers": "^0.1.124"
   },

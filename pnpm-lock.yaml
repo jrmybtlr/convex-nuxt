@@ -78,15 +78,15 @@ importers:
       '@convex-dev/auth':
         specifier: ^0.0.95
         version: 0.0.95(@auth/core@0.41.3)(convex@1.45.0)
-      '@convex/nuxt':
-        specifier: workspace:*
-        version: link:..
       convex:
         specifier: ^1.45.0
         version: 1.45.0
       convex-helpers:
         specifier: ^0.1.124
         version: 0.1.124(convex@1.45.0)(typescript@5.9.3)
+      use-convex:
+        specifier: workspace:*
+        version: link:..
     devDependencies:
       '@tailwindcss/vite':
         specifier: ^4.3.3

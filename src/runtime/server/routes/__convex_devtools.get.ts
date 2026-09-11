@@ -36,7 +36,7 @@ export default defineEventHandler((event) => {
   </style>
 </head>
 <body>
-  <h1>@convex/nuxt</h1>
+  <h1>use-convex</h1>
   <pre>${body.replace(/</g, '&lt;')}</pre>
 </body>
 </html>`
