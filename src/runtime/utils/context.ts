@@ -2,6 +2,7 @@ import type { AuthTokenFetcher, ConvexClient, ConvexHttpClient } from 'convex/br
 import type { ComputedRef, InjectionKey, Ref } from 'vue'
 import { inject, ref } from 'vue'
 import { useNuxtApp } from 'nuxt/app'
+import { missingConvexUrlError } from './errors'
 
 export interface ConvexAuthContext {
   /**
@@ -74,15 +75,13 @@ export function tryUseConvexContext(): ConvexNuxtContext | null {
     if (fromNuxt) {
       return fromNuxt
     }
-  }
-  catch {
+  } catch {
     // Not in a Nuxt app context.
   }
 
   try {
     return inject(convexNuxtKey, null)
-  }
-  catch {
+  } catch {
     return null
   }
 }
@@ -90,8 +89,8 @@ export function tryUseConvexContext(): ConvexNuxtContext | null {
 export function useConvexContext(): ConvexNuxtContext {
   const ctx = tryUseConvexContext()
   if (!ctx) {
-    throw new Error(
-      '[convex-nuxt] Convex plugin did not start — set convex.url or NUXT_PUBLIC_CONVEX_URL (the module no-ops when the URL is empty).',
+    throw missingConvexUrlError(
+      'Convex plugin did not start (the module no-ops when the URL is empty)',
     )
   }
   return ctx

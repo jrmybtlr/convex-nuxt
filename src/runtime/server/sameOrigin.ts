@@ -1,9 +1,4 @@
-import {
-  createError,
-  getRequestHeader,
-  getRequestProtocol,
-  type H3Event,
-} from 'h3'
+import { createError, getRequestHeader, getRequestProtocol, type H3Event } from 'h3'
 
 /**
  * Fail-closed same-origin guard for cookie-bearing auth routes.
@@ -22,10 +17,7 @@ export function assertSameOrigin(event: H3Event): void {
   if (secFetchSite === 'same-origin' || secFetchSite === 'none') {
     return
   }
-  if (
-    secFetchSite === 'cross-site'
-    || secFetchSite === 'same-site'
-  ) {
+  if (secFetchSite === 'cross-site' || secFetchSite === 'same-site') {
     throw createError({
       statusCode: 403,
       message: 'Forbidden',
@@ -39,14 +31,10 @@ export function assertSameOrigin(event: H3Event): void {
       const originUrl = new URL(origin)
       // Trust proxy scheme so HTTPS apps behind TLS terminators still match.
       const protocol = getRequestProtocol(event, { xForwardedProto: true })
-      if (
-        originUrl.protocol === `${protocol}:`
-        && originUrl.host === host
-      ) {
+      if (originUrl.protocol === `${protocol}:` && originUrl.host === host) {
         return
       }
-    }
-    catch {
+    } catch {
       // Invalid Origin → reject below.
     }
   }

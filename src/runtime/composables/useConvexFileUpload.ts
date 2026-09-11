@@ -1,8 +1,4 @@
-import type {
-  FunctionArgs,
-  FunctionReference,
-  FunctionReturnType,
-} from 'convex/server'
+import type { FunctionArgs, FunctionReference, FunctionReturnType } from 'convex/server'
 import { computed, ref } from 'vue'
 import { useConvexContext } from '../utils/context'
 
@@ -14,9 +10,7 @@ export type ConvexFileUploadMeta = {
   size: number
 }
 
-export type ConvexFileUploadExtraArgs<
-  SaveFile extends FunctionReference<'mutation'>,
-> = Omit<
+export type ConvexFileUploadExtraArgs<SaveFile extends FunctionReference<'mutation'>> = Omit<
   FunctionArgs<SaveFile>,
   'storageId' | 'name' | 'contentType' | 'size'
 >
@@ -45,17 +39,15 @@ function isUploadUrl(value: unknown): value is string {
 
 function parseStorageId(body: unknown): string {
   if (
-    typeof body === 'object'
-    && body !== null
-    && 'storageId' in body
-    && typeof (body as { storageId: unknown }).storageId === 'string'
-    && (body as { storageId: string }).storageId.length > 0
+    typeof body === 'object' &&
+    body !== null &&
+    'storageId' in body &&
+    typeof (body as { storageId: unknown }).storageId === 'string' &&
+    (body as { storageId: string }).storageId.length > 0
   ) {
     return (body as { storageId: string }).storageId
   }
-  throw new Error(
-    '[convex-nuxt] Upload response missing storageId.',
-  )
+  throw new Error('[use-convex] Upload response missing storageId.')
 }
 
 /**
@@ -71,10 +63,7 @@ export function postFileToUploadUrl(
     const xhr = new XMLHttpRequest()
     xhr.open('POST', uploadUrl)
     xhr.responseType = 'json'
-    xhr.setRequestHeader(
-      'Content-Type',
-      file.type || 'application/octet-stream',
-    )
+    xhr.setRequestHeader('Content-Type', file.type || 'application/octet-stream')
 
     xhr.upload.onprogress = (event) => {
       if (!event.lengthComputable || !onProgress) {
@@ -89,30 +78,29 @@ export function postFileToUploadUrl(
       if (xhr.status < 200 || xhr.status >= 300) {
         reject(
           new Error(
-            `[convex-nuxt] File upload failed (${xhr.status} ${xhr.statusText || 'error'}).`,
+            `[use-convex] File upload failed (${xhr.status} ${xhr.statusText || 'error'}).`,
           ),
         )
         return
       }
       try {
-        const body
-          = typeof xhr.response === 'string'
-            ? JSON.parse(xhr.response) as unknown
-            : xhr.response as unknown
+        const body =
+          typeof xhr.response === 'string'
+            ? (JSON.parse(xhr.response) as unknown)
+            : (xhr.response as unknown)
         resolve(parseStorageId(body))
-      }
-      catch (cause) {
+      } catch (cause) {
         const err = cause instanceof Error ? cause : new Error(String(cause))
         reject(err)
       }
     }
 
     xhr.onerror = () => {
-      reject(new Error('[convex-nuxt] File upload network error.'))
+      reject(new Error('[use-convex] File upload network error.'))
     }
 
     xhr.onabort = () => {
-      reject(new Error('[convex-nuxt] File upload aborted.'))
+      reject(new Error('[use-convex] File upload aborted.'))
     }
 
     xhr.send(file)
@@ -133,9 +121,7 @@ export function postFileToUploadUrl(
 export function useConvexFileUpload<
   GenerateUploadUrl extends FunctionReference<'mutation'>,
   SaveFile extends FunctionReference<'mutation'>,
->(
-  options: UseConvexFileUploadOptions<GenerateUploadUrl, SaveFile>,
-) {
+>(options: UseConvexFileUploadOptions<GenerateUploadUrl, SaveFile>) {
   const ctx = useConvexContext()
   const error = ref<Error | null>(null)
   const pendingCount = ref(0)
@@ -144,16 +130,14 @@ export function useConvexFileUpload<
   const upload = async (
     file: File,
     extra?: ConvexFileUploadExtraArgs<SaveFile> extends Record<string, never>
-      ? void
+      ? undefined
       : ConvexFileUploadExtraArgs<SaveFile>,
   ): Promise<FunctionReturnType<SaveFile>> => {
     if (import.meta.server || !ctx.client) {
-      throw new Error(
-        '[convex-nuxt] useConvexFileUpload can only run in the browser.',
-      )
+      throw new Error('[use-convex] useConvexFileUpload can only run in the browser.')
     }
     if (!(file instanceof File)) {
-      throw new Error('[convex-nuxt] useConvexFileUpload expects a File.')
+      throw new TypeError('[use-convex] useConvexFileUpload expects a File.')
     }
 
     pendingCount.value++
@@ -161,24 +145,18 @@ export function useConvexFileUpload<
     progress.value = null
 
     try {
-      const uploadUrl = await ctx.client.mutation(
+      const uploadUrl = (await ctx.client.mutation(
         options.generateUploadUrl,
         {} as FunctionArgs<GenerateUploadUrl>,
-      ) as UploadUrlResult
+      )) as UploadUrlResult
 
       if (!isUploadUrl(uploadUrl)) {
-        throw new Error(
-          '[convex-nuxt] generateUploadUrl must return a non-empty string URL.',
-        )
+        throw new Error('[use-convex] generateUploadUrl must return a non-empty string URL.')
       }
 
-      const storageId = await postFileToUploadUrl(
-        uploadUrl,
-        file,
-        (fraction) => {
-          progress.value = fraction
-        },
-      )
+      const storageId = await postFileToUploadUrl(uploadUrl, file, (fraction) => {
+        progress.value = fraction
+      })
 
       progress.value = 1
 
@@ -187,17 +165,15 @@ export function useConvexFileUpload<
         name: file.name,
         contentType: file.type || 'application/octet-stream',
         size: file.size,
-        ...(extra ?? {}),
+        ...extra,
       } as FunctionArgs<SaveFile>
 
       return await ctx.client.mutation(options.saveFile, saveArgs)
-    }
-    catch (cause) {
+    } catch (cause) {
       const err = cause instanceof Error ? cause : new Error(String(cause))
       error.value = err
       throw err
-    }
-    finally {
+    } finally {
       pendingCount.value--
       progress.value = null
     }

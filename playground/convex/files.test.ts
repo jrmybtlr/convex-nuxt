@@ -1,5 +1,5 @@
 import { convexTest } from 'convex-test'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { api } from './_generated/api'
 import schema from './schema'
 import { modules } from './test.setup'
@@ -11,12 +11,8 @@ function asSubject(userId: string): string {
 describe('files', () => {
   it('rejects unauthenticated generateUploadUrl / list / save', async () => {
     const t = convexTest(schema, modules)
-    await expect(t.mutation(api.files.generateUploadUrl, {})).rejects.toThrow(
-      /Not authenticated/,
-    )
-    await expect(t.query(api.files.list, {})).rejects.toThrow(
-      /Not authenticated/,
-    )
+    await expect(t.mutation(api.files.generateUploadUrl, {})).rejects.toThrow(/Not authenticated/)
+    await expect(t.query(api.files.list, {})).rejects.toThrow(/Not authenticated/)
 
     const storageId = await t.run(async (ctx) => {
       return await ctx.storage.store(new Blob(['x']))
@@ -63,7 +59,7 @@ describe('files', () => {
     expect(await asUser.query(api.files.list, {})).toEqual([])
   })
 
-  it('rejects removing another user\'s file', async () => {
+  it("rejects removing another user's file", async () => {
     const t = convexTest(schema, modules)
     const ownerId = await t.run(async (ctx) => ctx.db.insert('users', {}))
     const otherId = await t.run(async (ctx) => ctx.db.insert('users', {}))
@@ -72,19 +68,15 @@ describe('files', () => {
       return await ctx.storage.store(new Blob(['secret']))
     })
 
-    const fileId = await t
-      .withIdentity({ subject: asSubject(ownerId) })
-      .mutation(api.files.save, {
-        storageId,
-        name: 'secret.bin',
-        contentType: 'application/octet-stream',
-        size: 6,
-      })
+    const fileId = await t.withIdentity({ subject: asSubject(ownerId) }).mutation(api.files.save, {
+      storageId,
+      name: 'secret.bin',
+      contentType: 'application/octet-stream',
+      size: 6,
+    })
 
     await expect(
-      t
-        .withIdentity({ subject: asSubject(otherId) })
-        .mutation(api.files.remove, { fileId }),
+      t.withIdentity({ subject: asSubject(otherId) }).mutation(api.files.remove, { fileId }),
     ).rejects.toThrow(/Unauthorized/)
   })
 

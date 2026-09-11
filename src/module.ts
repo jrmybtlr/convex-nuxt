@@ -84,11 +84,7 @@ export interface ModuleOptions {
   auth?: ModuleAuthOptions
 }
 
-export type {
-  UseAuthReturn,
-  SignInResult,
-  AuthTokens,
-} from './runtime/composables/useAuth'
+export type { UseAuthReturn, SignInResult, AuthTokens } from './runtime/composables/useAuth'
 
 export interface ModulePublicRuntimeConfig {
   convex: {
@@ -111,6 +107,7 @@ export type {
 } from './runtime/composables/useConvexAuth'
 export type {
   UseConvexMutationOptions,
+  OptimisticUpdate,
 } from './runtime/composables/useConvexMutation'
 export type {
   UseConvexFileUploadOptions,
@@ -123,11 +120,14 @@ export type {
 } from './runtime/composables/useConvexR2Upload'
 export type {
   PaginatedQueryReference,
+  PaginatedQueryArgs,
+  PaginatedQueryItem,
   UseConvexPaginatedQueryOptions,
   UseConvexPaginatedQueryReturn,
   PaginationStatus,
 } from './runtime/composables/useConvexPaginatedQuery'
 export type {
+  ConvexQueryRequestEntry,
   ConvexQueriesRequest,
   ConvexQueriesResult,
 } from './runtime/composables/useConvexQueries'
@@ -175,11 +175,14 @@ export default defineNuxtModule<ModuleOptions>({
 
     // Ensure Nitro can resolve module runtime handlers / imports.
     nuxt.options.build.transpile.push(runtimeDir)
-    ;(nuxt.hooks as {
-      hook: (name: string, fn: (nitroConfig: {
-        externals?: { inline?: string[] | unknown }
-      }) => void) => void
-    }).hook('nitro:config', (nitroConfig) => {
+    ;(
+      nuxt.hooks as {
+        hook: (
+          name: string,
+          fn: (nitroConfig: { externals?: { inline?: string[] | unknown } }) => void,
+        ) => void
+      }
+    ).hook('nitro:config', (nitroConfig) => {
       nitroConfig.externals ||= {}
       nitroConfig.externals.inline ||= []
       if (Array.isArray(nitroConfig.externals.inline)) {
@@ -355,18 +358,21 @@ export default defineNuxtModule<ModuleOptions>({
     if (nuxt.options.dev) {
       // DevTools hook is optional — typed loosely so builds work without
       // @nuxt/devtools as a hard dependency.
-      ;(nuxt.hooks as { hook: (name: string, fn: (tabs: Array<Record<string, unknown>>) => void) => void })
-        .hook('devtools:customTabs', (tabs) => {
-          tabs.push({
-            name: 'convex-nuxt',
-            title: 'Convex',
-            icon: 'carbon:data-base',
-            view: {
-              type: 'iframe',
-              src: '/__convex_devtools',
-            },
-          })
+      ;(
+        nuxt.hooks as {
+          hook: (name: string, fn: (tabs: Array<Record<string, unknown>>) => void) => void
+        }
+      ).hook('devtools:customTabs', (tabs) => {
+        tabs.push({
+          name: 'convex-nuxt',
+          title: 'Convex',
+          icon: 'carbon:data-base',
+          view: {
+            type: 'iframe',
+            src: '/__convex_devtools',
+          },
         })
+      })
     }
 
     const contextTypes = resolver.resolve('./runtime/utils/context')

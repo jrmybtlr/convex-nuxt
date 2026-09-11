@@ -1,8 +1,4 @@
-import type {
-  FunctionArgs,
-  FunctionReference,
-  FunctionReturnType,
-} from 'convex/server'
+import type { FunctionArgs, FunctionReference, FunctionReturnType } from 'convex/server'
 import { computed, ref } from 'vue'
 import { useConvexContext } from '../utils/context'
 
@@ -27,23 +23,21 @@ type UploadUrlPayload = {
 
 function parseUploadUrlPayload(value: unknown): UploadUrlPayload {
   if (
-    typeof value === 'object'
-    && value !== null
-    && 'url' in value
-    && 'key' in value
-    && typeof (value as { url: unknown }).url === 'string'
-    && typeof (value as { key: unknown }).key === 'string'
-    && (value as { url: string }).url.length > 0
-    && (value as { key: string }).key.length > 0
+    typeof value === 'object' &&
+    value !== null &&
+    'url' in value &&
+    'key' in value &&
+    typeof (value as { url: unknown }).url === 'string' &&
+    typeof (value as { key: unknown }).key === 'string' &&
+    (value as { url: string }).url.length > 0 &&
+    (value as { key: string }).key.length > 0
   ) {
     return {
       url: (value as { url: string }).url,
       key: (value as { key: string }).key,
     }
   }
-  throw new Error(
-    '[convex-nuxt] generateUploadUrl must return `{ url, key }` strings.',
-  )
+  throw new Error('[use-convex] generateUploadUrl must return `{ url, key }` strings.')
 }
 
 /**
@@ -72,18 +66,16 @@ export function putFileToR2UploadUrl(
         return
       }
       reject(
-        new Error(
-          `[convex-nuxt] R2 upload failed (${xhr.status} ${xhr.statusText || 'error'}).`,
-        ),
+        new Error(`[use-convex] R2 upload failed (${xhr.status} ${xhr.statusText || 'error'}).`),
       )
     }
 
     xhr.onerror = () => {
-      reject(new Error('[convex-nuxt] R2 upload network error.'))
+      reject(new Error('[use-convex] R2 upload network error.'))
     }
 
     xhr.onabort = () => {
-      reject(new Error('[convex-nuxt] R2 upload aborted.'))
+      reject(new Error('[use-convex] R2 upload aborted.'))
     }
 
     xhr.send(file)
@@ -104,9 +96,7 @@ export function putFileToR2UploadUrl(
  * function references your app exports. Prefer this over built-in
  * `useConvexFileUpload` for large / resumable-oriented object storage.
  */
-export function useConvexR2Upload(
-  api: ConvexR2UploadApi,
-) {
+export function useConvexR2Upload(api: ConvexR2UploadApi) {
   const ctx = useConvexContext()
   const error = ref<Error | null>(null)
   const pendingCount = ref(0)
@@ -119,12 +109,10 @@ export function useConvexR2Upload(
     },
   ): Promise<string> => {
     if (import.meta.server || !ctx.client) {
-      throw new Error(
-        '[convex-nuxt] useConvexR2Upload can only run in the browser.',
-      )
+      throw new Error('[use-convex] useConvexR2Upload can only run in the browser.')
     }
     if (!(file instanceof File)) {
-      throw new Error('[convex-nuxt] useConvexR2Upload expects a File.')
+      throw new TypeError('[use-convex] useConvexR2Upload expects a File.')
     }
 
     pendingCount.value++
@@ -147,19 +135,14 @@ export function useConvexR2Upload(
 
       progress.value = 1
 
-      await ctx.client.mutation(
-        api.syncMetadata,
-        { key } as FunctionArgs<typeof api.syncMetadata>,
-      )
+      await ctx.client.mutation(api.syncMetadata, { key } as FunctionArgs<typeof api.syncMetadata>)
 
       return key
-    }
-    catch (cause) {
+    } catch (cause) {
       const err = cause instanceof Error ? cause : new Error(String(cause))
       error.value = err
       throw err
-    }
-    finally {
+    } finally {
       pendingCount.value--
       progress.value = null
     }

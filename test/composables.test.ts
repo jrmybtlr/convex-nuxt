@@ -1,14 +1,10 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 import { computed, ref } from 'vue'
 import { makeFunctionReference } from 'convex/server'
 import type { ConvexNuxtContext } from '../src/runtime/utils/context'
 
-const mutationFn = makeFunctionReference<'mutation', { text: string }, string>(
-  'tasks:create',
-)
-const actionFn = makeFunctionReference<'action', { n: number }, number>(
-  'tasks:run',
-)
+const mutationFn = makeFunctionReference<'mutation', { text: string }, string>('tasks:create')
+const actionFn = makeFunctionReference<'action', { n: number }, number>('tasks:run')
 
 function makeCtx(overrides: Partial<ConvexNuxtContext> = {}): ConvexNuxtContext {
   return {
@@ -57,9 +53,7 @@ describe('useConvexMutation / useConvexAction / useConvex', () => {
       tryUseConvexContext: () => ctx,
     }))
 
-    const { useConvexMutation } = await import(
-      '../src/runtime/composables/useConvexMutation'
-    )
+    const { useConvexMutation } = await import('../src/runtime/composables/useConvexMutation')
     const { mutate, error, pending } = useConvexMutation(mutationFn)
 
     expect(pending.value).toBe(false)
@@ -78,9 +72,7 @@ describe('useConvexMutation / useConvexAction / useConvex', () => {
       useConvexContext: () => ctx,
     }))
 
-    const { useConvexMutation } = await import(
-      '../src/runtime/composables/useConvexMutation'
-    )
+    const { useConvexMutation } = await import('../src/runtime/composables/useConvexMutation')
     const { mutate, error } = useConvexMutation(mutationFn)
     await expect(mutate({ text: 'x' })).rejects.toThrow('boom')
     expect(error.value?.message).toBe('boom')
@@ -101,9 +93,7 @@ describe('useConvexMutation / useConvexAction / useConvex', () => {
       useConvexContext: () => ctx,
     }))
 
-    const { useConvexMutation } = await import(
-      '../src/runtime/composables/useConvexMutation'
-    )
+    const { useConvexMutation } = await import('../src/runtime/composables/useConvexMutation')
     const { mutate, pending } = useConvexMutation(mutationFn)
     const first = mutate({ text: 'a' })
     const second = mutate({ text: 'b' })
@@ -123,14 +113,16 @@ describe('useConvexMutation / useConvexAction / useConvex', () => {
       useConvexContext: () => ctx,
     }))
 
-    const { useConvexMutation } = await import(
-      '../src/runtime/composables/useConvexMutation'
-    )
+    const { useConvexMutation } = await import('../src/runtime/composables/useConvexMutation')
     const { mutate } = useConvexMutation(mutationFn, { optimisticUpdate })
     await mutate({ text: 'hi' })
-    expect(mutateMock).toHaveBeenCalledWith(mutationFn, { text: 'hi' }, {
-      optimisticUpdate,
-    })
+    expect(mutateMock).toHaveBeenCalledWith(
+      mutationFn,
+      { text: 'hi' },
+      {
+        optimisticUpdate,
+      },
+    )
   })
 
   it('throws when mutate runs without a client', async () => {
@@ -139,9 +131,7 @@ describe('useConvexMutation / useConvexAction / useConvex', () => {
       useConvexContext: () => ctx,
     }))
 
-    const { useConvexMutation } = await import(
-      '../src/runtime/composables/useConvexMutation'
-    )
+    const { useConvexMutation } = await import('../src/runtime/composables/useConvexMutation')
     const { mutate } = useConvexMutation(mutationFn)
     await expect(mutate({ text: 'x' })).rejects.toThrow(/browser/)
   })
@@ -155,9 +145,7 @@ describe('useConvexMutation / useConvexAction / useConvex', () => {
       useConvexContext: () => ctx,
     }))
 
-    const { useConvexAction } = await import(
-      '../src/runtime/composables/useConvexAction'
-    )
+    const { useConvexAction } = await import('../src/runtime/composables/useConvexAction')
     const { run, error } = useConvexAction(actionFn)
     await expect(run({ n: 3 })).resolves.toBe(7)
     expect(runMock).toHaveBeenCalledWith(actionFn, { n: 3 })
@@ -165,9 +153,7 @@ describe('useConvexMutation / useConvexAction / useConvex', () => {
   })
 
   it('returns the browser client from useConvex', async () => {
-    const client = { mutation: vi.fn() } as unknown as NonNullable<
-      ConvexNuxtContext['client']
-    >
+    const client = { mutation: vi.fn() } as unknown as NonNullable<ConvexNuxtContext['client']>
     const ctx = makeCtx({ client })
     vi.doMock('../src/runtime/utils/context', () => ({
       useConvexContext: () => ctx,
@@ -200,9 +186,7 @@ describe('useConvexContext', () => {
       useNuxtApp: () => ({}),
     }))
 
-    const { useConvexContext, tryUseConvexContext } = await import(
-      '../src/runtime/utils/context'
-    )
+    const { useConvexContext, tryUseConvexContext } = await import('../src/runtime/utils/context')
     // Outside Vue setup, inject() typically throws — either path must
     // surface the same "plugin did not start" error from useConvexContext.
     const missing = tryUseConvexContext()
@@ -230,12 +214,8 @@ describe('prewarmQuery / useAuthToken / useConvexQueries', () => {
       tryUseConvexContext: () => ctx,
     }))
 
-    const { prewarmQuery } = await import(
-      '../src/runtime/composables/prewarmQuery'
-    )
-    const query = makeFunctionReference<'query', Record<string, never>, string[]>(
-      'tasks:list',
-    )
+    const { prewarmQuery } = await import('../src/runtime/composables/prewarmQuery')
+    const query = makeFunctionReference<'query', Record<string, never>, string[]>('tasks:list')
     const stop = prewarmQuery(query, {})
     expect(onUpdate).toHaveBeenCalled()
     stop()
@@ -249,9 +229,7 @@ describe('prewarmQuery / useAuthToken / useConvexQueries', () => {
         throw new Error('no ctx')
       },
     }))
-    const { useAuthToken } = await import(
-      '../src/runtime/composables/useAuthToken'
-    )
+    const { useAuthToken } = await import('../src/runtime/composables/useAuthToken')
     expect(useAuthToken().value).toBeNull()
   })
 
@@ -280,9 +258,7 @@ describe('prewarmQuery / useAuthToken / useConvexQueries', () => {
       }),
     }))
 
-    const { useAuthToken } = await import(
-      '../src/runtime/composables/useAuthToken'
-    )
+    const { useAuthToken } = await import('../src/runtime/composables/useAuthToken')
     const token = useAuthToken()
     await Promise.resolve()
     expect(token.value).toBe('jwt-1')
@@ -303,12 +279,8 @@ describe('prewarmQuery / useAuthToken / useConvexQueries', () => {
       tryUseConvexContext: () => ctx,
     }))
 
-    const { useConvexQueries } = await import(
-      '../src/runtime/composables/useConvexQueries'
-    )
-    const query = makeFunctionReference<'query', { id: string }, string[]>(
-      'tasks:get',
-    )
+    const { useConvexQueries } = await import('../src/runtime/composables/useConvexQueries')
+    const query = makeFunctionReference<'query', { id: string }, string[]>('tasks:get')
     const request = ref({
       a: { query, args: { id: '1' } },
       b: 'skip' as const,
@@ -331,12 +303,8 @@ describe('prewarmQuery / useAuthToken / useConvexQueries', () => {
       tryUseConvexContext: () => ctx,
     }))
 
-    const { useConvexQueries } = await import(
-      '../src/runtime/composables/useConvexQueries'
-    )
-    const query = makeFunctionReference<'query', { id: string }, string[]>(
-      'tasks:get',
-    )
+    const { useConvexQueries } = await import('../src/runtime/composables/useConvexQueries')
+    const query = makeFunctionReference<'query', { id: string }, string[]>('tasks:get')
     const request = ref({
       a: { query, args: { id: '1' } },
     })
@@ -391,9 +359,7 @@ describe('useConvexQuery authenticated option', () => {
       }),
     }))
 
-    const { useConvexQuery } = await import(
-      '../src/runtime/composables/useConvexQuery'
-    )
+    const { useConvexQuery } = await import('../src/runtime/composables/useConvexQuery')
     return { useConvexQuery, payload, refresh }
   }
 
@@ -402,7 +368,9 @@ describe('useConvexQuery authenticated option', () => {
     const onUpdate = vi.fn(() => vi.fn())
     const ctx = makeCtx({
       client: { onUpdate } as unknown as NonNullable<ConvexNuxtContext['client']>,
-      createHttpClient: vi.fn(() => ({ query: httpQuery })) as unknown as ConvexNuxtContext['createHttpClient'],
+      createHttpClient: vi.fn(() => ({
+        query: httpQuery,
+      })) as unknown as ConvexNuxtContext['createHttpClient'],
     })
     ctx.auth.isAuthenticated.value = false
 
@@ -426,7 +394,9 @@ describe('useConvexQuery authenticated option', () => {
     const httpQuery = vi.fn().mockResolvedValue([{ text: 'ok' }])
     const ctx = makeCtx({
       client: null,
-      createHttpClient: vi.fn(() => ({ query: httpQuery })) as unknown as ConvexNuxtContext['createHttpClient'],
+      createHttpClient: vi.fn(() => ({
+        query: httpQuery,
+      })) as unknown as ConvexNuxtContext['createHttpClient'],
     })
     ctx.auth.isAuthenticated.value = true
 
@@ -448,7 +418,9 @@ describe('useConvexQuery authenticated option', () => {
     })
     const ctx = makeCtx({
       client: { onUpdate } as unknown as NonNullable<ConvexNuxtContext['client']>,
-      createHttpClient: vi.fn(() => ({ query: httpQuery })) as unknown as ConvexNuxtContext['createHttpClient'],
+      createHttpClient: vi.fn(() => ({
+        query: httpQuery,
+      })) as unknown as ConvexNuxtContext['createHttpClient'],
     })
     ctx.auth.isAuthenticated.value = false
 

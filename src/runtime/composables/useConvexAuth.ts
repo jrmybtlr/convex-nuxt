@@ -1,11 +1,5 @@
 import type { AuthTokenFetcher } from 'convex/browser'
-import {
-  computed,
-  toValue,
-  watch,
-  type ComputedRef,
-  type MaybeRefOrGetter,
-} from 'vue'
+import { computed, toValue, watch, type ComputedRef, type MaybeRefOrGetter } from 'vue'
 import { useHasSsrSessionRef } from '../utils/authCookie'
 import { useConvexContext } from '../utils/context'
 import { resolveConvexAuthState } from '../utils/authState'
@@ -61,16 +55,12 @@ export interface UseConvexAuthReturn {
  *
  * Same contract as React `useConvexAuth` / `ConvexProviderWithAuth`.
  */
-export function useConvexAuth(
-  setup?: UseConvexAuthSetupOptions,
-): UseConvexAuthReturn {
+export function useConvexAuth(setup?: UseConvexAuthSetupOptions): UseConvexAuthReturn {
   const ctx = useConvexContext()
   const auth = ctx.auth
   // Prefer presence cookie when JWT is HttpOnly (client cannot read the token).
   const hasSsrSession = useHasSsrSessionRef()
-  const showAuthedUi = computed(
-    () => auth.isAuthenticated.value || hasSsrSession.value,
-  )
+  const showAuthedUi = computed(() => auth.isAuthenticated.value || hasSsrSession.value)
 
   if (setup) {
     if (import.meta.server) {
@@ -87,7 +77,7 @@ export function useConvexAuth(
     const client = ctx.client
     if (!client) {
       throw new Error(
-        '[convex-nuxt] useConvexAuth({ fetchToken }) requires ConvexClient (browser only).',
+        '[use-convex] useConvexAuth({ fetchToken }) requires ConvexClient (browser only).',
       )
     }
 
@@ -113,8 +103,7 @@ export function useConvexAuth(
         auth.isRefreshingRaw.value = false
         try {
           client.client.clearAuth()
-        }
-        catch {
+        } catch {
           // Client may be disabled / closed.
         }
         applyAuthState(auth)
@@ -141,10 +130,7 @@ export function useConvexAuth(
     }
 
     watch(
-      () => [
-        toValue(setup.isLoading) ?? false,
-        toValue(setup.isAuthenticated) ?? true,
-      ],
+      () => [toValue(setup.isLoading) ?? false, toValue(setup.isAuthenticated) ?? true],
       syncFromProvider,
       { immediate: true },
     )
@@ -159,9 +145,7 @@ export function useConvexAuth(
   }
 }
 
-function applyAuthState(
-  auth: ReturnType<typeof useConvexContext>['auth'],
-): void {
+function applyAuthState(auth: ReturnType<typeof useConvexContext>['auth']): void {
   const next = resolveConvexAuthState({
     authProviderLoading: auth.providerLoading.value,
     authProviderAuthenticated: auth.providerAuthenticated.value,

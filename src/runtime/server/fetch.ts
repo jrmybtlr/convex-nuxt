@@ -1,13 +1,10 @@
-import type {
-  FunctionArgs,
-  FunctionReference,
-  FunctionReturnType,
-} from 'convex/server'
+import type { FunctionArgs, FunctionReference, FunctionReturnType } from 'convex/server'
 import type { H3Event } from 'h3'
 import { getCookie } from 'h3'
 import { createHttpClient } from '../utils/http'
 import { resolveAuthCookieName } from '../utils/authStorage'
 import { resolveFetchToken } from '../utils/fetchToken'
+import { missingConvexUrlError } from '../utils/errors'
 import { readConvexConfig } from './convexConfig'
 
 export interface ConvexFetchOptions {
@@ -27,7 +24,7 @@ export interface ConvexFetchOptions {
   skipConvexDeploymentUrlCheck?: boolean
 }
 
-/** @internal Exported for unit tests. */
+/** @internal */
 export function resolveUrl(options: ConvexFetchOptions): string {
   if (options.url) {
     return options.url
@@ -43,12 +40,10 @@ export function resolveUrl(options: ConvexFetchOptions): string {
     return fromEnv
   }
 
-  throw new Error(
-    '[convex-nuxt] No Convex URL. Pass { url } or set NUXT_PUBLIC_CONVEX_URL.',
-  )
+  throw missingConvexUrlError('fetchQuery/Mutation/Action')
 }
 
-/** @internal Exported for unit tests. */
+/** @internal */
 export function resolveToken(options: ConvexFetchOptions): string | undefined {
   if (options.token !== undefined) {
     return resolveFetchToken({ token: options.token })

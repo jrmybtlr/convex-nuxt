@@ -1,7 +1,7 @@
 /**
  * @vitest-environment happy-dom
  */
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 import { computed, nextTick, ref } from 'vue'
 import {
   readLocal,
@@ -16,11 +16,9 @@ const CONVEX_URL = 'https://example.convex.cloud'
 const jwtKey = storageKey(JWT_STORAGE_KEY, CONVEX_URL)
 const refreshKey = storageKey(REFRESH_TOKEN_STORAGE_KEY, CONVEX_URL)
 
-const {
-  cookieRef,
-  stateStore,
-  actionMock,
-} = vi.hoisted(() => {
+const { cookieRef, stateStore, actionMock } = vi.hoisted(() => {
+  // vitest hoisted factories run before ESM imports resolve
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
   const { ref } = require('vue') as typeof import('vue')
   return {
     cookieRef: ref<string | null>(null),
@@ -131,9 +129,7 @@ describe('auth token helpers', () => {
   it('getAuthToken returns the cached JWT without force refresh', async () => {
     writeLocal(jwtKey, 'cached-jwt')
     const { getAuthToken } = await import('../src/runtime/composables/useAuth')
-    await expect(getAuthToken({ forceRefreshToken: false })).resolves.toBe(
-      'cached-jwt',
-    )
+    await expect(getAuthToken({ forceRefreshToken: false })).resolves.toBe('cached-jwt')
     expect(actionMock).not.toHaveBeenCalled()
   })
 
@@ -144,9 +140,7 @@ describe('auth token helpers', () => {
     })
 
     const { getAuthToken } = await import('../src/runtime/composables/useAuth')
-    await expect(getAuthToken({ forceRefreshToken: true })).resolves.toBe(
-      'new-jwt',
-    )
+    await expect(getAuthToken({ forceRefreshToken: true })).resolves.toBe('new-jwt')
     expect(readLocal(jwtKey)).toBe('new-jwt')
     expect(readLocal(refreshKey)).toBe('refresh-2')
     await nextTick()
@@ -163,9 +157,8 @@ describe('auth token helpers', () => {
 
   it('hydrateAuthFromStorage sets hasSession and cookie from localStorage', async () => {
     writeLocal(jwtKey, 'stored-jwt')
-    const { hydrateAuthFromStorage, useAuthProviderState } = await import(
-      '../src/runtime/composables/useAuth'
-    )
+    const { hydrateAuthFromStorage, useAuthProviderState } =
+      await import('../src/runtime/composables/useAuth')
     hydrateAuthFromStorage()
     const { hasSession, isLoading } = useAuthProviderState()
     expect(hasSession.value).toBe(true)

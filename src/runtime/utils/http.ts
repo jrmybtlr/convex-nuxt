@@ -23,9 +23,11 @@ export function createHttpClient(
   }
 
   // Present at runtime; used by convex/nextjs to avoid cached SSR responses.
-  ;(client as ConvexHttpClient & {
-    setFetchOptions: (init: RequestInit) => void
-  }).setFetchOptions({ cache: 'no-store' })
+  ;(
+    client as ConvexHttpClient & {
+      setFetchOptions: (init: RequestInit) => void
+    }
+  ).setFetchOptions({ cache: 'no-store' })
 
   return client
 }

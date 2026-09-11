@@ -36,8 +36,7 @@ export function requireConvexAuth(event: H3Event): string {
   if (!token) {
     throw createError({
       statusCode: 401,
-      message:
-        'Not authenticated — sign in so the Convex auth cookie is set.',
+      message: 'Not authenticated — sign in so the Convex auth cookie is set.',
     })
   }
   return token

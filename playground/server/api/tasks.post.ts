@@ -18,8 +18,7 @@ export default defineEventHandler(async (event) => {
   try {
     const taskId = await fetchMutation(api.tasks.create, { text }, { event })
     return { taskId }
-  }
-  catch (cause) {
+  } catch (cause) {
     rethrowConvexAuthError(cause)
   }
 })

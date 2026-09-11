@@ -16,10 +16,7 @@ const taskValidator = v.object({
 /** Demo list cap — prefer `listPaginated` for unbounded user data. */
 const DEMO_LIST_LIMIT = 100
 
-async function listTasksForUser(
-  ctx: QueryCtx,
-  userId: Id<'users'>,
-): Promise<Array<Doc<'tasks'>>> {
+async function listTasksForUser(ctx: QueryCtx, userId: Id<'users'>): Promise<Array<Doc<'tasks'>>> {
   return await ctx.db
     .query('tasks')
     .withIndex('by_user', (q) => q.eq('userId', userId))

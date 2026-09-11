@@ -20,8 +20,7 @@ export function prewarmQuery<Query extends FunctionReference<'query'>>(
     onScopeDispose(() => {
       unsubscribe()
     })
-  }
-  catch {
+  } catch {
     // Called outside setup — caller owns the unsubscribe.
   }
 

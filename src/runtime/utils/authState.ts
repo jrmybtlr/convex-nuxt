@@ -31,12 +31,8 @@ export interface ConvexAuthState {
 }
 
 export function resolveConvexAuthState(flags: ConvexAuthFlags): ConvexAuthState {
-  const {
-    authProviderLoading,
-    authProviderAuthenticated,
-    isConvexAuthenticated,
-    isRefreshing,
-  } = flags
+  const { authProviderLoading, authProviderAuthenticated, isConvexAuthenticated, isRefreshing } =
+    flags
 
   // Provider loading → stay loading (and reset confirmation upstream).
   if (authProviderLoading) {

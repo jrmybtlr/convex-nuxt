@@ -8,16 +8,16 @@
 
 ## Fix status
 
-| Priority | Item | Status |
-|----------|------|--------|
-| P0 | Session GET returns JWT under HttpOnly | Fixed — GET returns `{ hasSession }` only; JWT via `POST { getToken: true }` |
-| P0 | CSRF `assertSameOrigin` fail-open | Fixed — fail-closed; Origin/Host fallback |
-| P1 | `useConvexQueries` resubscribe churn | Fixed — signature diff per key |
-| P1 | Document HttpOnly XSS limits + production `httpOnly` | Fixed — README + module JSDoc |
-| P2 | Presence-cookie / `showAuthedUi` trust boundary docs | Fixed — README |
-| P2 | SSR query budget guidance | Fixed — README |
-| P3 | OAuth redirect allowlist | Fixed — http(s) only via `parseOAuthRedirect` |
-| P3 | Playground unauth `shout` / `.collect()` | Fixed — auth on shout; `.take(100)` on list |
+| Priority | Item                                                 | Status                                                                       |
+| -------- | ---------------------------------------------------- | ---------------------------------------------------------------------------- |
+| P0       | Session GET returns JWT under HttpOnly               | Fixed — GET returns `{ hasSession }` only; JWT via `POST { getToken: true }` |
+| P0       | CSRF `assertSameOrigin` fail-open                    | Fixed — fail-closed; Origin/Host fallback                                    |
+| P1       | `useConvexQueries` resubscribe churn                 | Fixed — signature diff per key                                               |
+| P1       | Document HttpOnly XSS limits + production `httpOnly` | Fixed — README + module JSDoc                                                |
+| P2       | Presence-cookie / `showAuthedUi` trust boundary docs | Fixed — README                                                               |
+| P2       | SSR query budget guidance                            | Fixed — README                                                               |
+| P3       | OAuth redirect allowlist                             | Fixed — http(s) only via `parseOAuthRedirect`                                |
+| P3       | Playground unauth `shout` / `.collect()`             | Fixed — auth on shout; `.take(100)` on list                                  |
 
 ## Original summary
 
@@ -35,7 +35,7 @@ The highest-priority issues were around **HttpOnly session semantics vs XSS** (G
 
 **Where:** [`src/runtime/server/api/convex/auth/session.ts`](../src/runtime/server/api/convex/auth/session.ts) (GET handler), consumed by [`src/runtime/composables/useAuth.ts`](../src/runtime/composables/useAuth.ts) (`fetchAuthSession`).
 
-**Finding:** With `convex.auth.httpOnly: true`, JWT/refresh cookies are HttpOnly, but `GET /api/convex/auth/session` returns `{ hasSession, token }` including the raw JWT. Any same-origin XSS can `$fetch` the session endpoint and steal the token. HttpOnly therefore mitigates *cookie* theft via `document.cookie`, not *session* theft under XSS.
+**Finding:** With `convex.auth.httpOnly: true`, JWT/refresh cookies are HttpOnly, but `GET /api/convex/auth/session` returns `{ hasSession, token }` including the raw JWT. Any same-origin XSS can `$fetch` the session endpoint and steal the token. HttpOnly therefore mitigates _cookie_ theft via `document.cookie`, not _session_ theft under XSS.
 
 **Impact:** Overstates the XSS protection of the HttpOnly option; refresh remains in HttpOnly cookie, but access JWT is still exfiltrable.
 
@@ -51,7 +51,7 @@ if (secFetchSite && secFetchSite !== 'same-origin' && secFetchSite !== 'none') {
 }
 ```
 
-**Finding:** If the header is absent (older clients, some non-browser callers, stripped proxies), the request is allowed. Cookies use `SameSite=lax`, which blocks many classic cross-site POSTs, but **same-site** sibling-subdomain attackers and header-less clients remain a concern. When the header *is* present, `same-site` (sibling) is correctly rejected.
+**Finding:** If the header is absent (older clients, some non-browser callers, stripped proxies), the request is allowed. Cookies use `SameSite=lax`, which blocks many classic cross-site POSTs, but **same-site** sibling-subdomain attackers and header-less clients remain a concern. When the header _is_ present, `same-site` (sibling) is correctly rejected.
 
 **Impact:** Session POST (set tokens / refresh) and DELETE (logout) / GET (token read) are weaker than a fail-closed Origin/`Sec-Fetch-Site` policy.
 
@@ -63,7 +63,7 @@ if (secFetchSite && secFetchSite !== 'same-origin' && secFetchSite !== 'none') {
 
 **Where:** [`authCookies.ts`](../src/runtime/server/authCookies.ts) (`presentOpts.httpOnly: false`), [`authStorage.ts`](../src/runtime/utils/authStorage.ts) (`DEFAULT_AUTH_PRESENT_COOKIE`).
 
-**Finding:** `convex_auth_present=1` is readable/writable from JS. Forging it makes `hasSsrSession` / `showAuthedUi` true so the authenticated *shell* mounts. Live data with `{ authenticated: true }` still waits for Convex confirmation — docs already warn about this, and playground `TasksDemo` follows the pattern.
+**Finding:** `convex_auth_present=1` is readable/writable from JS. Forging it makes `hasSsrSession` / `showAuthedUi` true so the authenticated _shell_ mounts. Live data with `{ authenticated: true }` still waits for Convex confirmation — docs already warn about this, and playground `TasksDemo` follows the pattern.
 
 **Impact:** UI spoofing / flash of signed-in chrome; not authorization bypass if apps gate live queries correctly.
 
@@ -107,14 +107,14 @@ if (secFetchSite && secFetchSite !== 'same-origin' && secFetchSite !== 'none') {
 
 ### Low / informational
 
-| Item | Notes |
-|------|--------|
-| No `eval` / user-driven dynamic import / `v-html` sinks in module | Good |
-| Outbound HTTP only to configured Convex URL | No module-level SSRF |
-| DevTools route `/__convex_devtools` | Dev-only; HTML-escapes JSON; exposes public config only |
-| Cookie `secure` based on Host / localhost | Mis-set `Host` in weird proxies could weaken flags |
-| `useConvexAuth` defaults `isAuthenticated` provider flag to `true` | Demo-friendly; Convex confirmation still gates final state |
-| Session POST accepts caller-supplied tokens | By design for client→cookie handoff after sign-in; CSRF hardening matters more |
+| Item                                                               | Notes                                                                          |
+| ------------------------------------------------------------------ | ------------------------------------------------------------------------------ |
+| No `eval` / user-driven dynamic import / `v-html` sinks in module  | Good                                                                           |
+| Outbound HTTP only to configured Convex URL                        | No module-level SSRF                                                           |
+| DevTools route `/__convex_devtools`                                | Dev-only; HTML-escapes JSON; exposes public config only                        |
+| Cookie `secure` based on Host / localhost                          | Mis-set `Host` in weird proxies could weaken flags                             |
+| `useConvexAuth` defaults `isAuthenticated` provider flag to `true` | Demo-friendly; Convex confirmation still gates final state                     |
+| Session POST accepts caller-supplied tokens                        | By design for client→cookie handoff after sign-in; CSRF hardening matters more |
 
 ---
 
@@ -130,11 +130,11 @@ if (secFetchSite && secFetchSite !== 'same-origin' && secFetchSite !== 'none') {
 
 ### Issues / copy-paste hazards
 
-| Severity | Finding |
-|----------|---------|
-| Low | [`shout` action](../playground/convex/tasks.ts) and [`/api/shout`](../playground/server/api/shout.post.ts) are unauthenticated — fine for a demo uppercase, but easy to copy as a pattern for privileged actions. |
-| Low | `list` uses `.collect()` without pagination — OK for tiny demos; `listPaginated` shows the right production pattern. |
-| Info | Playground enables HttpOnly correctly — good reference for production Nuxt apps. |
+| Severity | Finding                                                                                                                                                                                                           |
+| -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Low      | [`shout` action](../playground/convex/tasks.ts) and [`/api/shout`](../playground/server/api/shout.post.ts) are unauthenticated — fine for a demo uppercase, but easy to copy as a pattern for privileged actions. |
+| Low      | `list` uses `.collect()` without pagination — OK for tiny demos; `listPaginated` shows the right production pattern.                                                                                              |
+| Info     | Playground enables HttpOnly correctly — good reference for production Nuxt apps.                                                                                                                                  |
 
 ---
 
@@ -168,12 +168,12 @@ if (secFetchSite && secFetchSite !== 'same-origin' && secFetchSite !== 'none') {
 
 ### Low
 
-| Item | Notes |
-|------|--------|
-| Subscription cleanup via `onScopeDispose` | Generally solid in query/paginated/connection composables |
-| `prewarmQuery` | Leak if called outside setup without keeping unsubscribe; can duplicate live subs with later `useConvexQuery` |
-| Playground `list` `.collect()` | Fine for demo scale; prefer `listPaginated` in real apps |
-| Optimistic paginated helpers | Useful; ensure apps don’t hold unbounded loaded pages without UX limits |
+| Item                                      | Notes                                                                                                         |
+| ----------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| Subscription cleanup via `onScopeDispose` | Generally solid in query/paginated/connection composables                                                     |
+| `prewarmQuery`                            | Leak if called outside setup without keeping unsubscribe; can duplicate live subs with later `useConvexQuery` |
+| Playground `list` `.collect()`            | Fine for demo scale; prefer `listPaginated` in real apps                                                      |
+| Optimistic paginated helpers              | Useful; ensure apps don’t hold unbounded loaded pages without UX limits                                       |
 
 ---
 
@@ -190,16 +190,16 @@ if (secFetchSite && secFetchSite !== 'same-origin' && secFetchSite !== 'none') {
 
 ## Priority matrix (for a future fix pass)
 
-| Priority | Item | Area |
-|----------|------|------|
-| P0 | Session GET returns JWT under HttpOnly | Security |
-| P0 | CSRF `assertSameOrigin` fail-open | Security |
-| P1 | `useConvexQueries` resubscribe churn | Performance |
-| P1 | Document HttpOnly XSS limits + production `httpOnly: true` | Security / docs |
-| P2 | Presence-cookie / `showAuthedUi` trust boundary docs | Security |
-| P2 | SSR query budget guidance | Performance |
-| P3 | OAuth redirect allowlist (optional) | Security |
-| P3 | Playground unauth `shout` / `.collect()` callouts | Playground |
+| Priority | Item                                                       | Area            |
+| -------- | ---------------------------------------------------------- | --------------- |
+| P0       | Session GET returns JWT under HttpOnly                     | Security        |
+| P0       | CSRF `assertSameOrigin` fail-open                          | Security        |
+| P1       | `useConvexQueries` resubscribe churn                       | Performance     |
+| P1       | Document HttpOnly XSS limits + production `httpOnly: true` | Security / docs |
+| P2       | Presence-cookie / `showAuthedUi` trust boundary docs       | Security        |
+| P2       | SSR query budget guidance                                  | Performance     |
+| P3       | OAuth redirect allowlist (optional)                        | Security        |
+| P3       | Playground unauth `shout` / `.collect()` callouts          | Playground      |
 
 ---
 

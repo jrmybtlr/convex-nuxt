@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import { makeFunctionReference } from 'convex/server'
 import type { OptimisticLocalStore } from 'convex/browser'
 import {
@@ -9,14 +9,16 @@ import {
 
 const listPaginated = makeFunctionReference<
   'query',
-  { paginationOpts: { numItems: number, cursor: string | null }, listId?: string },
-  { page: Array<{ _id: string, text: string }>, isDone: boolean, continueCursor: string }
+  { paginationOpts: { numItems: number; cursor: string | null }; listId?: string },
+  { page: Array<{ _id: string; text: string }>; isDone: boolean; continueCursor: string }
 >('tasks:listPaginated')
 
 function makeStore(
   pages: Array<{
     args: Record<string, unknown>
-    value: { page: Array<{ _id: string, text: string }>, isDone: boolean, continueCursor: string } | undefined
+    value:
+      | { page: Array<{ _id: string; text: string }>; isDone: boolean; continueCursor: string }
+      | undefined
   }>,
 ): OptimisticLocalStore {
   const setQuery = vi.fn()
@@ -48,7 +50,10 @@ describe('paginated optimistic helpers', () => {
       listPaginated,
       { paginationOpts: { numItems: 5, cursor: null } },
       expect.objectContaining({
-        page: [{ _id: '0', text: 'new' }, { _id: '1', text: 'a' }],
+        page: [
+          { _id: '0', text: 'new' },
+          { _id: '1', text: 'a' },
+        ],
       }),
     )
   })
@@ -86,12 +91,10 @@ describe('paginated optimistic helpers', () => {
         },
       },
     ])
-    optimisticallyUpdateValueInPaginatedQuery(
-      store,
-      listPaginated,
-      { listId: 'L1' },
-      item => ({ ...item, text: item.text.toUpperCase() }),
-    )
+    optimisticallyUpdateValueInPaginatedQuery(store, listPaginated, { listId: 'L1' }, (item) => ({
+      ...item,
+      text: item.text.toUpperCase(),
+    }))
     expect(store.setQuery).toHaveBeenCalledWith(
       listPaginated,
       expect.anything(),

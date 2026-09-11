@@ -1,4 +1,4 @@
-import { afterAll, describe, expect, it } from 'vitest'
+import { afterAll, describe, expect, it } from 'vite-plus/test'
 import { api } from '../convex/_generated/api'
 import type { Id } from '../convex/_generated/dataModel'
 import {
@@ -38,13 +38,13 @@ describe.skipIf(!enabled)('playground full flow (live)', () => {
       return
     }
     const client = authedConvexClient(convexUrl, tokens.token)
-    const listed = await client.query(api.tasks.list, {}) as Task[]
-    const created = listed.filter(task => task.text.startsWith(taskPrefix))
+    const listed = (await client.query(api.tasks.list, {})) as Task[]
+    const created = listed.filter((task) => task.text.startsWith(taskPrefix))
     for (const task of created) {
       await client.mutation(api.tasks.remove, { taskId: task._id })
     }
-    const after = await client.query(api.tasks.list, {}) as Task[]
-    expect(after.some(task => task.text.startsWith(taskPrefix))).toBe(false)
+    const after = (await client.query(api.tasks.list, {})) as Task[]
+    expect(after.some((task) => task.text.startsWith(taskPrefix))).toBe(false)
 
     if (baseURL) {
       await clearHttpOnlySession(baseURL, jar)
@@ -76,22 +76,20 @@ describe.skipIf(!enabled)('playground full flow (live)', () => {
         body: JSON.stringify({ text: nitroTaskText }),
       })
       expect(createRes.ok).toBe(true)
-      const createdBody = await createRes.json() as { taskId: string }
+      const createdBody = (await createRes.json()) as { taskId: string }
       expect(createdBody.taskId).toBeTruthy()
 
       const listRes = await fetchWithJar(baseURL, jar, '/api/tasks')
       expect(listRes.ok).toBe(true)
-      const nitroListed = await listRes.json() as Task[]
-      const nitroTask = nitroListed.find(task => task.text === nitroTaskText)
+      const nitroListed = (await listRes.json()) as Task[]
+      const nitroTask = nitroListed.find((task) => task.text === nitroTaskText)
       expect(nitroTask).toBeDefined()
       expect(nitroTask!.completed).toBe(false)
 
       const client = authedConvexClient(convexUrl, tokens.token)
       await client.mutation(api.tasks.toggle, { taskId: nitroTask!._id })
-      const afterToggle = await client.query(api.tasks.list, {}) as Task[]
-      expect(
-        afterToggle.find(task => task._id === nitroTask!._id)?.completed,
-      ).toBe(true)
+      const afterToggle = (await client.query(api.tasks.list, {})) as Task[]
+      expect(afterToggle.find((task) => task._id === nitroTask!._id)?.completed).toBe(true)
 
       const htmlRes = await fetchWithJar(baseURL, jar, '/')
       expect(htmlRes.ok).toBe(true)
@@ -105,8 +103,7 @@ describe.skipIf(!enabled)('playground full flow (live)', () => {
       })
       expect(shoutRes.ok).toBe(true)
       expect(await shoutRes.json()).toEqual({ shouted: 'E2E' })
-    }
-    finally {
+    } finally {
       await rollback()
     }
   })

@@ -8,9 +8,13 @@ const {
   data: files,
   pending: filesPending,
   refresh: refreshFiles,
-} = await useConvexQuery(api.files.list, {}, {
-  authenticated: true,
-})
+} = await useConvexQuery(
+  api.files.list,
+  {},
+  {
+    authenticated: true,
+  },
+)
 
 const {
   upload,
@@ -35,12 +39,10 @@ async function onFileChange(event: Event) {
     await upload(file)
     showToast(`Uploaded ${file.name}`)
     await refreshFiles()
-  }
-  catch (cause: unknown) {
+  } catch (cause: unknown) {
     const err = cause as { message?: string }
     showToast(err.message ?? uploadError.value?.message ?? 'Upload failed')
-  }
-  finally {
+  } finally {
     input.value = ''
   }
 }
@@ -51,12 +53,10 @@ async function onRemoveFile(fileId: string) {
     await removeFile({ fileId })
     showToast('File removed')
     await refreshFiles()
-  }
-  catch (cause: unknown) {
+  } catch (cause: unknown) {
     const err = cause as { message?: string }
     showToast(err.message ?? 'Remove failed')
-  }
-  finally {
+  } finally {
     removingId.value = null
   }
 }
@@ -78,37 +78,25 @@ function isImage(contentType: string): boolean {
 
 <template>
   <main class="py-10">
-    <h1 class="text-xl font-medium tracking-tight">
-      File uploads
-    </h1>
+    <h1 class="text-xl font-medium tracking-tight">File uploads</h1>
     <p class="mt-3 text-sm leading-relaxed text-zinc-500">
-      Demo of <code>useConvexFileUpload</code>: generate an upload URL, POST the
-      file, then save the <code>storageId</code>. For Cloudflare R2 / large
-      objects, see <code>useConvexR2Upload</code> in the README. Sign in on
-      <NuxtLink
-        to="/"
-        class="underline decoration-zinc-300 underline-offset-2 hover:text-zinc-800"
-      >
+      Demo of <code>useConvexFileUpload</code>: generate an upload URL, POST the file, then save the
+      <code>storageId</code>. For Cloudflare R2 / large objects, see
+      <code>useConvexR2Upload</code> in the README. Sign in on
+      <NuxtLink to="/" class="underline decoration-zinc-300 underline-offset-2 hover:text-zinc-800">
         Live
       </NuxtLink>
       first.
     </p>
 
-    <p
-      v-if="!showAuthedUi"
-      class="mt-6 text-sm text-zinc-400"
-    >
-      Not signed in.
-    </p>
+    <p v-if="!showAuthedUi" class="mt-6 text-sm text-zinc-400">Not signed in.</p>
 
     <template v-else>
       <section class="mt-8 rounded-lg border border-zinc-200 p-4">
-        <h2 class="text-sm font-medium">
-          Upload
-        </h2>
+        <h2 class="text-sm font-medium">Upload</h2>
         <p class="mt-1 text-sm text-zinc-500">
-          Auth-gated <code>generateUploadUrl</code> → POST →
-          <code>files.save</code>. Progress comes from XHR.
+          Auth-gated <code>generateUploadUrl</code> → POST → <code>files.save</code>. Progress comes
+          from XHR.
         </p>
         <div class="mt-4 flex flex-wrap items-center gap-3">
           <input
@@ -117,39 +105,20 @@ function isImage(contentType: string): boolean {
             class="block w-full max-w-sm text-sm file:mr-3 file:rounded-md file:border file:border-zinc-200 file:bg-white file:px-3 file:py-1.5"
             :disabled="!isAuthenticated || uploading"
             @change="onFileChange"
-          >
-          <span
-            v-if="uploading"
-            class="text-sm text-zinc-500"
-            data-testid="file-upload-progress"
-          >
+          />
+          <span v-if="uploading" class="text-sm text-zinc-500" data-testid="file-upload-progress">
             Uploading{{ uploadProgress != null ? ` ${Math.round(uploadProgress * 100)}%` : '…' }}
           </span>
         </div>
-        <p
-          v-if="uploadError"
-          class="mt-2 text-sm text-red-600"
-          data-testid="file-upload-error"
-        >
+        <p v-if="uploadError" class="mt-2 text-sm text-red-600" data-testid="file-upload-error">
           {{ uploadError.message }}
         </p>
       </section>
 
       <section class="mt-6 mb-8 rounded-lg border border-zinc-200 p-4">
-        <h2 class="text-sm font-medium">
-          Your files
-        </h2>
-        <p
-          v-if="filesPending"
-          class="mt-4 text-sm text-zinc-400"
-        >
-          Loading files…
-        </p>
-        <ul
-          v-else
-          class="mt-4 space-y-4 text-sm"
-          data-testid="file-list"
-        >
+        <h2 class="text-sm font-medium">Your files</h2>
+        <p v-if="filesPending" class="mt-4 text-sm text-zinc-400">Loading files…</p>
+        <ul v-else class="mt-4 space-y-4 text-sm" data-testid="file-list">
           <li
             v-for="file in files ?? []"
             :key="file._id"
@@ -163,11 +132,7 @@ function isImage(contentType: string): boolean {
                 rel="noopener noreferrer"
                 class="block shrink-0"
               >
-                <img
-                  :src="file.url"
-                  :alt="file.name"
-                  class="h-16 w-16 rounded-md object-cover"
-                >
+                <img :src="file.url" :alt="file.name" class="h-16 w-16 rounded-md object-cover" />
               </a>
               <div class="min-w-0 flex-1">
                 <a
@@ -179,10 +144,7 @@ function isImage(contentType: string): boolean {
                 >
                   {{ file.name }}
                 </a>
-                <span
-                  v-else
-                  class="font-medium"
-                >{{ file.name }}</span>
+                <span v-else class="font-medium">{{ file.name }}</span>
                 <p class="mt-1 text-zinc-400">
                   {{ formatBytes(file.size) }} · {{ file.contentType || 'unknown' }}
                 </p>
@@ -197,10 +159,7 @@ function isImage(contentType: string): boolean {
               </button>
             </div>
           </li>
-          <li
-            v-if="(files ?? []).length === 0"
-            class="text-zinc-400"
-          >
+          <li v-if="(files ?? []).length === 0" class="text-zinc-400">
             No files yet — pick one above.
           </li>
         </ul>

@@ -1,5 +1,5 @@
 import type { H3Event } from 'h3'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { assertSameOrigin } from '../src/runtime/server/sameOrigin'
 import { parseOAuthRedirect } from '../src/runtime/utils/oauthRedirect'
 
@@ -28,55 +28,61 @@ describe('assertSameOrigin', () => {
   })
 
   it('allows sec-fetch-site none', () => {
-    expect(() =>
-      assertSameOrigin(eventWithHeaders({ 'sec-fetch-site': 'none' })),
-    ).not.toThrow()
+    expect(() => assertSameOrigin(eventWithHeaders({ 'sec-fetch-site': 'none' }))).not.toThrow()
   })
 
   it('rejects cross-site and same-site', () => {
-    expect(() =>
-      assertSameOrigin(eventWithHeaders({ 'sec-fetch-site': 'cross-site' })),
-    ).toThrow(/Forbidden/)
-    expect(() =>
-      assertSameOrigin(eventWithHeaders({ 'sec-fetch-site': 'same-site' })),
-    ).toThrow(/Forbidden/)
+    expect(() => assertSameOrigin(eventWithHeaders({ 'sec-fetch-site': 'cross-site' }))).toThrow(
+      /Forbidden/,
+    )
+    expect(() => assertSameOrigin(eventWithHeaders({ 'sec-fetch-site': 'same-site' }))).toThrow(
+      /Forbidden/,
+    )
   })
 
   it('allows matching Origin scheme+host when Sec-Fetch-Site is absent', () => {
     expect(() =>
-      assertSameOrigin(eventWithHeaders({
-        origin: 'http://localhost:3000',
-        host: 'localhost:3000',
-      })),
+      assertSameOrigin(
+        eventWithHeaders({
+          origin: 'http://localhost:3000',
+          host: 'localhost:3000',
+        }),
+      ),
     ).not.toThrow()
   })
 
   it('allows https Origin when X-Forwarded-Proto is https', () => {
     expect(() =>
-      assertSameOrigin(eventWithHeaders({
-        origin: 'https://app.example.com',
-        host: 'app.example.com',
-        'x-forwarded-proto': 'https',
-      })),
+      assertSameOrigin(
+        eventWithHeaders({
+          origin: 'https://app.example.com',
+          host: 'app.example.com',
+          'x-forwarded-proto': 'https',
+        }),
+      ),
     ).not.toThrow()
   })
 
   it('rejects http Origin for an https request (scheme mismatch)', () => {
     expect(() =>
-      assertSameOrigin(eventWithHeaders({
-        origin: 'http://app.example.com',
-        host: 'app.example.com',
-        'x-forwarded-proto': 'https',
-      })),
+      assertSameOrigin(
+        eventWithHeaders({
+          origin: 'http://app.example.com',
+          host: 'app.example.com',
+          'x-forwarded-proto': 'https',
+        }),
+      ),
     ).toThrow(/Forbidden/)
   })
 
   it('rejects mismatched Origin or missing signals', () => {
     expect(() =>
-      assertSameOrigin(eventWithHeaders({
-        origin: 'https://evil.example',
-        host: 'localhost:3000',
-      })),
+      assertSameOrigin(
+        eventWithHeaders({
+          origin: 'https://evil.example',
+          host: 'localhost:3000',
+        }),
+      ),
     ).toThrow(/Forbidden/)
     expect(() => assertSameOrigin(eventWithHeaders({}))).toThrow(/Forbidden/)
   })
@@ -84,10 +90,8 @@ describe('assertSameOrigin', () => {
 
 describe('parseOAuthRedirect', () => {
   it('accepts http(s) URLs', () => {
-    expect(parseOAuthRedirect('https://github.com/login').href)
-      .toBe('https://github.com/login')
-    expect(parseOAuthRedirect('http://localhost:3000/callback').protocol)
-      .toBe('http:')
+    expect(parseOAuthRedirect('https://github.com/login').href).toBe('https://github.com/login')
+    expect(parseOAuthRedirect('http://localhost:3000/callback').protocol).toBe('http:')
   })
 
   it('rejects non-http(s) and invalid URLs', () => {

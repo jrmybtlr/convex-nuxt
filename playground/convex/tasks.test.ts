@@ -1,5 +1,5 @@
 import { convexTest } from 'convex-test'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { api } from './_generated/api'
 import schema from './schema'
 import { modules } from './test.setup'
@@ -45,12 +45,10 @@ describe('tasks', () => {
     const t = convexTest(schema, modules)
     const userId = await t.run(async (ctx) => ctx.db.insert('users', {}))
     const asUser = t.withIdentity({ subject: asSubject(userId) })
-    await expect(
-      asUser.mutation(api.tasks.create, { text: '   ' }),
-    ).rejects.toThrow(/required/i)
+    await expect(asUser.mutation(api.tasks.create, { text: '   ' })).rejects.toThrow(/required/i)
   })
 
-  it('rejects mutating another user\'s task', async () => {
+  it("rejects mutating another user's task", async () => {
     const t = convexTest(schema, modules)
     const ownerId = await t.run(async (ctx) => ctx.db.insert('users', {}))
     const otherId = await t.run(async (ctx) => ctx.db.insert('users', {}))
@@ -60,22 +58,16 @@ describe('tasks', () => {
       .mutation(api.tasks.create, { text: 'private' })
 
     await expect(
-      t
-        .withIdentity({ subject: asSubject(otherId) })
-        .mutation(api.tasks.toggle, { taskId }),
+      t.withIdentity({ subject: asSubject(otherId) }).mutation(api.tasks.toggle, { taskId }),
     ).rejects.toThrow(/Unauthorized/)
   })
 
   it('shout requires auth and uppercases text', async () => {
     const t = convexTest(schema, modules)
-    await expect(t.action(api.tasks.shout, { text: 'hi' })).rejects.toThrow(
-      /Not authenticated/,
-    )
+    await expect(t.action(api.tasks.shout, { text: 'hi' })).rejects.toThrow(/Not authenticated/)
 
     const userId = await t.run(async (ctx) => ctx.db.insert('users', {}))
     const asUser = t.withIdentity({ subject: asSubject(userId) })
-    await expect(asUser.action(api.tasks.shout, { text: ' hi ' })).resolves.toBe(
-      'HI',
-    )
+    await expect(asUser.action(api.tasks.shout, { text: ' hi ' })).resolves.toBe('HI')
   })
 })

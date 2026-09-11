@@ -7,9 +7,7 @@ import { useNuxtApp, useRuntimeConfig } from 'nuxt/app'
 
 const config = useRuntimeConfig()
 const app = useNuxtApp()
-const convex = app.$convex as
-  | { url?: string, client: unknown | null }
-  | undefined
+const convex = app.$convex as { url?: string; client: unknown | null } | undefined
 
 // These are only auto-imported when provider === 'convex-auth'.
 const hasUseAuth = typeof useAuth === 'function'

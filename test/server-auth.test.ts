@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import { createError } from 'h3'
 
 vi.mock('h3', async (importOriginal) => {
@@ -26,9 +26,7 @@ describe('requireConvexAuth / getConvexToken', () => {
     const { getCookie } = await import('h3')
     vi.mocked(getCookie).mockReturnValue('jwt-token')
 
-    const { getConvexToken, requireConvexAuth } = await import(
-      '../src/runtime/server/auth'
-    )
+    const { getConvexToken, requireConvexAuth } = await import('../src/runtime/server/auth')
     const event = {} as never
     expect(getConvexToken(event)).toBe('jwt-token')
     expect(requireConvexAuth(event)).toBe('jwt-token')
@@ -42,8 +40,7 @@ describe('requireConvexAuth / getConvexToken', () => {
     expect(() => requireConvexAuth({} as never)).toThrowError()
     try {
       requireConvexAuth({} as never)
-    }
-    catch (e) {
+    } catch (e) {
       expect(createError).toBeTruthy()
       expect((e as { statusCode?: number }).statusCode).toBe(401)
     }

@@ -1,5 +1,5 @@
 import { fileURLToPath } from 'node:url'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { $fetch, setup } from '@nuxt/test-utils/e2e'
 import { parseFixtureDump } from './utils/parseFixtureDump'
 
@@ -13,7 +13,7 @@ describe('fixture: auth', async () => {
     const dump = parseFixtureDump(html) as {
       convex: {
         url?: string
-        auth?: { provider?: string, cookie?: string }
+        auth?: { provider?: string; cookie?: string }
       }
       hasConvex: boolean
       hasUseAuth: boolean

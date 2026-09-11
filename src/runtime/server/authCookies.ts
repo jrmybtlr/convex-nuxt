@@ -1,10 +1,5 @@
 import type { H3Event } from 'h3'
-import {
-  deleteCookie,
-  getCookie,
-  getRequestHeader,
-  setCookie,
-} from 'h3'
+import { deleteCookie, getCookie, getRequestHeader, setCookie } from 'h3'
 import {
   AUTH_JWT_COOKIE_MAX_AGE,
   isHttpOnlyAuth,
@@ -25,11 +20,7 @@ function readAuthConfig(event: H3Event) {
 
 function isLocalHost(event: H3Event): boolean {
   const host = getRequestHeader(event, 'host') ?? ''
-  return (
-    host.startsWith('localhost')
-    || host.startsWith('127.0.0.1')
-    || host.startsWith('[::1]')
-  )
+  return host.startsWith('localhost') || host.startsWith('127.0.0.1') || host.startsWith('[::1]')
 }
 
 function cookieOptions(event: H3Event, httpOnly: boolean) {
@@ -47,9 +38,7 @@ function cookieOptions(event: H3Event, httpOnly: boolean) {
 export function setAuthCookies(event: H3Event, tokens: AuthCookieSet): void {
   const auth = readAuthConfig(event)
   if (!isHttpOnlyAuth(auth)) {
-    throw new Error(
-      '[convex-nuxt] setAuthCookies requires convex.auth.httpOnly: true',
-    )
+    throw new Error('[use-convex] setAuthCookies requires convex.auth.httpOnly: true')
   }
 
   const jwtName = resolveAuthCookieName(auth)!

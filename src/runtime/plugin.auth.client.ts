@@ -38,8 +38,7 @@ export default defineNuxtPlugin({
     const { isLoading, hasSession } = useAuthProviderState()
 
     useConvexAuth({
-      fetchToken: ({ forceRefreshToken }) =>
-        getAuthToken({ forceRefreshToken }),
+      fetchToken: ({ forceRefreshToken }) => getAuthToken({ forceRefreshToken }),
       isLoading,
       isAuthenticated: hasSession,
     })

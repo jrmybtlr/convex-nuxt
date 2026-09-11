@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 
 const enabled = process.env.E2E_CONVEX === '1'
 const baseURL = process.env.E2E_BASE_URL ?? 'http://localhost:3000'
@@ -14,7 +14,7 @@ describe.skipIf(!enabled)('ssr hydrate (live deployment)', () => {
   it('exposes Nitro health without auth', async () => {
     const res = await fetch(baseURL + '/api/health')
     expect(res.ok).toBe(true)
-    const body = await res.json() as { ok: boolean }
+    const body = (await res.json()) as { ok: boolean }
     expect(body.ok).toBe(true)
   })
 

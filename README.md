@@ -61,14 +61,14 @@ const { data, pending, error, refresh } = await useConvexQuery(
 )
 ```
 
-| Option | Default | Purpose |
-|---|---|---|
-| `key` | function name + args | Nuxt payload / cache key |
-| `server` | `convex.server` (`true`) | SSR HttpClient snapshot |
-| `lazy` | `false` | Non-blocking on client navigation |
-| `live` | `true` | Subscribe after hydration |
-| `authenticated` | `false` | Wait for Convex auth before live subscribe |
-| `token` | cookie / none | Per-request JWT for SSR |
+| Option          | Default                  | Purpose                                    |
+| --------------- | ------------------------ | ------------------------------------------ |
+| `key`           | function name + args     | Nuxt payload / cache key                   |
+| `server`        | `convex.server` (`true`) | SSR HttpClient snapshot                    |
+| `lazy`          | `false`                  | Non-blocking on client navigation          |
+| `live`          | `true`                   | Subscribe after hydration                  |
+| `authenticated` | `false`                  | Wait for Convex auth before live subscribe |
+| `token`         | cookie / none            | Per-request JWT for SSR                    |
 
 Args accept the query's `FunctionArgs`, `'skip'`, or a `MaybeRefOrGetter` of either.
 
@@ -87,9 +87,7 @@ prewarmQuery(api.tasks.list, {})
 ```ts
 const results = useConvexQueries(() => ({
   inbox: { query: api.messages.list, args: { channel: 'inbox' } },
-  later: selectedId.value
-    ? { query: api.messages.get, args: { id: selectedId.value } }
-    : 'skip',
+  later: selectedId.value ? { query: api.messages.get, args: { id: selectedId.value } } : 'skip',
 }))
 ```
 
@@ -164,7 +162,9 @@ import { components } from './_generated/api'
 
 const r2 = new R2(components.r2)
 export const { generateUploadUrl, syncMetadata } = r2.clientApi({
-  checkUpload: async (ctx) => { /* auth */ },
+  checkUpload: async (ctx) => {
+    /* auth */
+  },
 })
 ```
 
@@ -277,7 +277,9 @@ const { data } = await useConvexQuery(api.tasks.list, {}, { authenticated: true 
 Optional SSR cookie (you must write the JWT after sign-in):
 
 ```ts
-auth: { cookie: 'convex_jwt' }
+auth: {
+  cookie: 'convex_jwt'
+}
 ```
 
 ## Server routes
@@ -321,6 +323,10 @@ convex: {
 
 `url` also reads `NUXT_PUBLIC_CONVEX_URL` via `runtimeConfig.public.convex.url`, so you can change the deployment without rebuilding.
 
+## Contributing
+
+See [CONTRIBUTING.md](./CONTRIBUTING.md). Lint/format/test use **Vite+** (`vp`) — Oxlint, Oxfmt, and Vitest — while Nuxt module build/dev stay on `nuxt-module-build` / `nuxi`.
+
 ## Playground
 
 `playground/` is a normal Nuxt app that consumes this module (workspace-linked).
@@ -336,12 +342,12 @@ pnpm run dev:backend
 pnpm run dev
 ```
 
-| Route | What it shows |
-|---|---|
-| `/` | SSR snapshot + live overlay (sign up, CRUD todos) |
-| `/server` | Nitro `fetchQuery` / `fetchMutation` / `fetchAction` |
-| `/files` | `useConvexFileUpload` (upload, list, preview, delete) |
-| `/extras` | `live: false`, pagination, action, connection state |
+| Route     | What it shows                                         |
+| --------- | ----------------------------------------------------- |
+| `/`       | SSR snapshot + live overlay (sign up, CRUD todos)     |
+| `/server` | Nitro `fetchQuery` / `fetchMutation` / `fetchAction`  |
+| `/files`  | `useConvexFileUpload` (upload, list, preview, delete) |
+| `/extras` | `live: false`, pagination, action, connection state   |
 
 On `/server`: `GET /api/health` is public; `GET`/`POST /api/tasks` use the cookie JWT; `POST /api/shout` is a public `fetchAction` demo.
 
@@ -349,12 +355,12 @@ On `/server`: `GET /api/health` is public; `GET`/`POST /api/tasks` use the cooki
 
 Releases run from `.github/workflows/release.yml` when commits land on `main`. Version bumps follow [conventional commits](https://www.conventionalcommits.org/):
 
-| Commit | Release |
-|---|---|
-| `fix:` | patch |
-| `feat:` | minor |
-| `feat!:` or `BREAKING CHANGE:` | major |
-| `chore:`, `docs:`, `ci:`, … | none |
+| Commit                         | Release |
+| ------------------------------ | ------- |
+| `fix:`                         | patch   |
+| `feat:`                        | minor   |
+| `feat!:` or `BREAKING CHANGE:` | major   |
+| `chore:`, `docs:`, `ci:`, …    | none    |
 
 semantic-release publishes `use-convex` to npm, tags `vX.Y.Z`, and opens a GitHub Release. The repo `package.json` version is not committed back.
 
