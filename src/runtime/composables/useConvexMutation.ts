@@ -4,8 +4,9 @@ import type {
   FunctionReturnType,
 } from 'convex/server'
 import type { OptimisticUpdate } from 'convex/browser'
-import { computed, ref, toValue, type MaybeRefOrGetter } from 'vue'
+import { toValue, type MaybeRefOrGetter } from 'vue'
 import { useConvexContext } from '../utils/context'
+import { createPendingErrorState } from '../utils/pendingError'
 
 export type { OptimisticUpdate }
 
@@ -33,8 +34,7 @@ export function useConvexMutation<Mutation extends FunctionReference<'mutation'>
   options: UseConvexMutationOptions<Mutation> = {},
 ) {
   const ctx = useConvexContext()
-  const error = ref<Error | null>(null)
-  const pendingCount = ref(0)
+  const { error, pending, withPending } = createPendingErrorState()
 
   const mutate = async (
     args: MaybeRefOrGetter<FunctionArgs<Mutation>> = {} as FunctionArgs<Mutation>,
@@ -44,31 +44,21 @@ export function useConvexMutation<Mutation extends FunctionReference<'mutation'>
         '[convex-nuxt] useConvexMutation can only run in the browser.',
       )
     }
-    pendingCount.value++
-    error.value = null
-    try {
+    return await withPending(async () => {
       const resolved = toValue(args)
-      return await ctx.client.mutation(
+      return await ctx.client!.mutation(
         mutation,
         resolved,
         options.optimisticUpdate
           ? { optimisticUpdate: options.optimisticUpdate }
           : undefined,
       )
-    }
-    catch (cause) {
-      const err = cause instanceof Error ? cause : new Error(String(cause))
-      error.value = err
-      throw err
-    }
-    finally {
-      pendingCount.value--
-    }
+    })
   }
 
   return {
     mutate,
     error,
-    pending: computed(() => pendingCount.value > 0),
+    pending,
   }
 }

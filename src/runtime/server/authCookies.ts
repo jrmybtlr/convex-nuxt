@@ -5,30 +5,22 @@ import {
   getRequestHeader,
   setCookie,
 } from 'h3'
-import { useRuntimeConfig } from 'nitropack/runtime'
 import {
   AUTH_JWT_COOKIE_MAX_AGE,
   isHttpOnlyAuth,
   resolveAuthCookieName,
   resolveAuthPresentCookieName,
   resolveAuthRefreshCookieName,
-  type ConvexAuthConfig,
 } from '../utils/authStorage'
+import { readConvexConfig } from './convexConfig'
 
 export interface AuthCookieSet {
   token: string | null
   refreshToken?: string | null
 }
 
-function readAuthConfig(event: H3Event): ConvexAuthConfig | undefined {
-  try {
-    const config = useRuntimeConfig(event)
-    return (config.public?.convex as { auth?: ConvexAuthConfig } | undefined)
-      ?.auth
-  }
-  catch {
-    return undefined
-  }
+function readAuthConfig(event: H3Event) {
+  return readConvexConfig(event)?.auth
 }
 
 function isLocalHost(event: H3Event): boolean {
@@ -40,21 +32,10 @@ function isLocalHost(event: H3Event): boolean {
   )
 }
 
-function httpOnlyCookieOptions(event: H3Event) {
+function cookieOptions(event: H3Event, httpOnly: boolean) {
   const local = isLocalHost(event)
   return {
-    httpOnly: true,
-    secure: !local,
-    sameSite: 'lax' as const,
-    path: '/',
-    maxAge: AUTH_JWT_COOKIE_MAX_AGE,
-  }
-}
-
-function readableCookieOptions(event: H3Event) {
-  const local = isLocalHost(event)
-  return {
-    httpOnly: false,
+    httpOnly,
     secure: !local,
     sameSite: 'lax' as const,
     path: '/',
@@ -74,8 +55,8 @@ export function setAuthCookies(event: H3Event, tokens: AuthCookieSet): void {
   const jwtName = resolveAuthCookieName(auth)!
   const refreshName = resolveAuthRefreshCookieName(auth)!
   const presentName = resolveAuthPresentCookieName(auth)!
-  const httpOpts = httpOnlyCookieOptions(event)
-  const presentOpts = readableCookieOptions(event)
+  const httpOpts = cookieOptions(event, true)
+  const presentOpts = cookieOptions(event, false)
 
   if (!tokens.token) {
     deleteCookie(event, jwtName, httpOpts)

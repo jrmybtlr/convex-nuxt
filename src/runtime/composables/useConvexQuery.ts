@@ -4,7 +4,7 @@ import type {
   FunctionReturnType,
 } from 'convex/server'
 import { convexToJson, jsonToConvex } from 'convex/values'
-import { useAsyncData, useNuxtApp, useRuntimeConfig } from 'nuxt/app'
+import { useAsyncData, useRuntimeConfig } from 'nuxt/app'
 import {
   computed,
   onScopeDispose,
@@ -18,6 +18,7 @@ import {
 import { resolveAuthGatedArgs } from '../utils/authGate'
 import { useConvexContext } from '../utils/context'
 import { resolveQueryOverlay } from '../utils/overlay'
+import { readHydratedPayloadCache } from '../utils/payloadCache'
 import { convexQueryKey } from '../utils/queryKey'
 
 export type ConvexQueryArgs<Query extends FunctionReference<'query'>> =
@@ -126,9 +127,7 @@ export async function useConvexQuery<Query extends FunctionReference<'query'>>(
       // HttpOnly clients cannot send a JWT on HttpClient — keep the hydrated
       // payload and let the live subscription own updates.
       if (requireAuth && import.meta.client && !token) {
-        const nuxtApp = useNuxtApp()
-        const cached = nuxtApp.payload.data[toValue(key)]
-        return (cached ?? null) as FunctionReturnType<Query> | null
+        return readHydratedPayloadCache<FunctionReturnType<Query> | null>(key)
       }
 
       const http = ctx.createHttpClient({ token })

@@ -9,8 +9,6 @@ import {
   type ConvexAuthConfig,
 } from './authStorage'
 
-export { AUTH_JWT_COOKIE_MAX_AGE }
-
 type ConvexPublicAuth = {
   auth?: ConvexAuthConfig
 }
