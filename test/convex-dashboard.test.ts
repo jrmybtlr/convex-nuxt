@@ -81,14 +81,20 @@ describe('convexDashboard helpers', () => {
   })
 
   it('suggests the cloud URL when .env.local still points at loopback', () => {
+    expect(suggestedCloudUrlFromMismatch('http://127.0.0.1:3210', 'dev:clear-terrier-531')).toBe(
+      'https://clear-terrier-531.convex.cloud',
+    )
     expect(
-      suggestedCloudUrlFromMismatch('http://127.0.0.1:3210', 'dev:clear-terrier-531'),
-    ).toBe('https://clear-terrier-531.convex.cloud')
-    expect(
-      suggestedCloudUrlFromMismatch('http://127.0.0.1:3210', 'local:local-jeremy_butler-playground'),
+      suggestedCloudUrlFromMismatch(
+        'http://127.0.0.1:3210',
+        'local:local-jeremy_butler-playground',
+      ),
     ).toBeNull()
     expect(
-      suggestedCloudUrlFromMismatch('https://clear-terrier-531.convex.cloud', 'dev:clear-terrier-531'),
+      suggestedCloudUrlFromMismatch(
+        'https://clear-terrier-531.convex.cloud',
+        'dev:clear-terrier-531',
+      ),
     ).toBeNull()
   })
 

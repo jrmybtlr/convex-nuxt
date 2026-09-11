@@ -41,8 +41,8 @@ async function runShout() {
     </p>
 
     <p v-if="!url" class="mt-6 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">
-      Run <code>pnpm run dev:backend</code> to write the Convex URL into
-      <code>.env.local</code>, then restart <code>pnpm run dev</code>.
+      Run <code>pnpm run dev:backend</code> to write the Convex URL into <code>.env.local</code>,
+      then restart <code>pnpm run dev</code>.
     </p>
 
     <template v-else>
