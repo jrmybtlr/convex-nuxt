@@ -9,4 +9,11 @@ export default defineSchema({
     text: v.string(),
     completed: v.boolean(),
   }).index('by_user', ['userId']),
+  files: defineTable({
+    userId: v.id('users'),
+    storageId: v.id('_storage'),
+    name: v.string(),
+    contentType: v.string(),
+    size: v.number(),
+  }).index('by_user', ['userId']),
 })

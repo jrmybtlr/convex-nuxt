@@ -113,6 +113,11 @@ export type {
   UseConvexMutationOptions,
 } from './runtime/composables/useConvexMutation'
 export type {
+  UseConvexFileUploadOptions,
+  ConvexFileUploadMeta,
+  ConvexFileUploadExtraArgs,
+} from './runtime/composables/useConvexFileUpload'
+export type {
   PaginatedQueryReference,
   UseConvexPaginatedQueryOptions,
   UseConvexPaginatedQueryReturn,
@@ -252,6 +257,10 @@ export default defineNuxtModule<ModuleOptions>({
       {
         name: 'useConvexMutation',
         from: resolver.resolve('./runtime/composables/useConvexMutation'),
+      },
+      {
+        name: 'useConvexFileUpload',
+        from: resolver.resolve('./runtime/composables/useConvexFileUpload'),
       },
       {
         name: 'useConvexAction',

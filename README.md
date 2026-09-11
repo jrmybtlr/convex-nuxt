@@ -137,6 +137,22 @@ Also available: `insertAtBottomIfLoaded`, `insertAtPosition`, `optimisticallyUpd
 
 `useConvex()` returns the browser `ConvexClient` when you need an escape hatch. `useConvexConnectionState()` is a reactive WebSocket `ConnectionState`.
 
+## File uploads
+
+Convex file storage is a three-step client flow: generate a short-lived upload URL, `POST` the file bytes, then save the returned `storageId` in a mutation. `useConvexFileUpload` wraps that for Nuxt (browser-only, with `pending` / `error` / `progress`).
+
+```ts
+const { upload, pending, error, progress } = useConvexFileUpload({
+  generateUploadUrl: api.files.generateUploadUrl,
+  saveFile: api.files.save, // ({ storageId, name, contentType, size, ... }) => Id<"files">
+})
+
+await upload(file)
+// optional extra save args: await upload(file, { caption: '…' })
+```
+
+Your Convex mutations must enforce auth — never expose an unauthenticated `generateUploadUrl`. Prefer storing `storageId` (and resolving URLs with `ctx.storage.getUrl`) over persisting raw public URLs. See the playground `files` module and the Extras page for a full list/upload/delete example.
+
 ## Auth
 
 ### Convex Auth
@@ -301,7 +317,7 @@ pnpm run dev
 |---|---|
 | `/` | SSR snapshot + live overlay (sign up, CRUD todos) |
 | `/server` | Nitro `fetchQuery` / `fetchMutation` / `fetchAction` |
-| `/extras` | `live: false`, pagination, action, connection state |
+| `/extras` | `live: false`, pagination, action, connection state, file upload |
 
 On `/server`: `GET /api/health` is public; `GET`/`POST /api/tasks` use the cookie JWT; `POST /api/shout` is a public `fetchAction` demo.
 
