@@ -118,6 +118,10 @@ export type {
   ConvexFileUploadExtraArgs,
 } from './runtime/composables/useConvexFileUpload'
 export type {
+  ConvexR2UploadApi,
+  ConvexR2UploadProgress,
+} from './runtime/composables/useConvexR2Upload'
+export type {
   PaginatedQueryReference,
   UseConvexPaginatedQueryOptions,
   UseConvexPaginatedQueryReturn,
@@ -206,7 +210,12 @@ export default defineNuxtModule<ModuleOptions>({
       })
     }
 
-    for (const name of ['Authenticated', 'Unauthenticated', 'AuthLoading'] as const) {
+    for (const name of [
+      'Authenticated',
+      'Unauthenticated',
+      'AuthLoading',
+      'AuthRefreshing',
+    ] as const) {
       addComponent({
         name,
         filePath: resolver.resolve(`./runtime/components/${name}.vue`),
@@ -261,6 +270,10 @@ export default defineNuxtModule<ModuleOptions>({
       {
         name: 'useConvexFileUpload',
         from: resolver.resolve('./runtime/composables/useConvexFileUpload'),
+      },
+      {
+        name: 'useConvexR2Upload',
+        from: resolver.resolve('./runtime/composables/useConvexR2Upload'),
       },
       {
         name: 'useConvexAction',

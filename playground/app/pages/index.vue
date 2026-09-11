@@ -61,6 +61,11 @@ async function runShout() {
           Resolving auth…
         </p>
       </AuthLoading>
+      <AuthRefreshing>
+        <p class="mt-6 text-sm text-zinc-500">
+          Refreshing session…
+        </p>
+      </AuthRefreshing>
       <Authenticated>
         <TasksDemo />
       </Authenticated>

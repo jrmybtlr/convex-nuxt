@@ -83,7 +83,8 @@ function isImage(contentType: string): boolean {
     </h1>
     <p class="mt-3 text-sm leading-relaxed text-zinc-500">
       Demo of <code>useConvexFileUpload</code>: generate an upload URL, POST the
-      file, then save the <code>storageId</code>. Sign in on
+      file, then save the <code>storageId</code>. For Cloudflare R2 / large
+      objects, see <code>useConvexR2Upload</code> in the README. Sign in on
       <NuxtLink
         to="/"
         class="underline decoration-zinc-300 underline-offset-2 hover:text-zinc-800"
