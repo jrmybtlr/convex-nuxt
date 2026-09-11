@@ -6,7 +6,7 @@ import type {
   PaginationResult,
 } from 'convex/server'
 import { convexToJson, jsonToConvex } from 'convex/values'
-import { useAsyncData, useNuxtApp, useRuntimeConfig } from 'nuxt/app'
+import { useAsyncData, useRuntimeConfig } from 'nuxt/app'
 import {
   computed,
   onScopeDispose,
@@ -20,6 +20,7 @@ import {
 } from 'vue'
 import { resolveAuthGatedArgs } from '../utils/authGate'
 import { useConvexContext } from '../utils/context'
+import { readHydratedPayloadCache } from '../utils/payloadCache'
 import { convexQueryKey } from '../utils/queryKey'
 
 /**
@@ -75,23 +76,8 @@ export type UseConvexPaginatedQueryReturn<Query extends PaginatedQueryReference>
 /** Runtime shape from `ConvexClient.onPaginatedUpdate_experimental`. */
 type LivePaginatedResult<Item> = {
   results: Item[]
-  status: 'LoadingFirstPage' | 'CanLoadMore' | 'LoadingMore' | 'Exhausted'
+  status: PaginationStatus
   loadMore: (numItems: number) => boolean
-}
-
-function mapLiveStatus(
-  status: LivePaginatedResult<unknown>['status'],
-): PaginationStatus {
-  switch (status) {
-    case 'LoadingFirstPage':
-      return 'LoadingFirstPage'
-    case 'LoadingMore':
-      return 'LoadingMore'
-    case 'Exhausted':
-      return 'Exhausted'
-    case 'CanLoadMore':
-      return 'CanLoadMore'
-  }
 }
 
 /**
@@ -160,11 +146,9 @@ export async function useConvexPaginatedQuery<
       }
       const token = options.token ?? ctx.ssrToken.value
       if (requireAuth && import.meta.client && !token) {
-        const nuxtApp = useNuxtApp()
-        const cached = nuxtApp.payload.data[toValue(key)]
-        return (cached ?? null) as PaginationResult<
+        return readHydratedPayloadCache<PaginationResult<
           PaginatedQueryItem<Query>
-        > | null
+        > | null>(key)
       }
       const http = ctx.createHttpClient({ token })
       const result = await http.query(
@@ -214,7 +198,7 @@ export async function useConvexPaginatedQuery<
       return 'Exhausted'
     }
     if (liveReady.value && live.value) {
-      return mapLiveStatus(live.value.status)
+      return live.value.status
     }
     if (asyncData.pending.value || (import.meta.client && !liveReady.value)) {
       // Prefer SSR page while the live subscription catches up.

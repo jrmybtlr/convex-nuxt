@@ -5,12 +5,10 @@ import type {
 } from 'convex/server'
 import type { H3Event } from 'h3'
 import { getCookie } from 'h3'
-import { useRuntimeConfig } from 'nitropack/runtime'
 import { createHttpClient } from '../utils/http'
 import { resolveAuthCookieName } from '../utils/authStorage'
 import { resolveFetchToken } from '../utils/fetchToken'
-
-export { resolveFetchToken }
+import { readConvexConfig } from './convexConfig'
 
 export interface ConvexFetchOptions {
   /**
@@ -27,21 +25,6 @@ export interface ConvexFetchOptions {
    */
   event?: H3Event
   skipConvexDeploymentUrlCheck?: boolean
-}
-
-interface ConvexPublicConfig {
-  url?: string
-  auth?: { provider?: string, cookie?: string }
-}
-
-function readConvexConfig(event?: H3Event): ConvexPublicConfig | undefined {
-  try {
-    const config = useRuntimeConfig(event)
-    return config.public?.convex as ConvexPublicConfig | undefined
-  }
-  catch {
-    return undefined
-  }
 }
 
 /** @internal Exported for unit tests. */

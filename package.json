@@ -51,7 +51,6 @@
     "@nuxt/test-utils": "^3.23.0",
     "@types/node": "^26.5.0",
     "convex": "^1.45.0",
-    "convex-helpers": "^0.1.124",
     "convex-test": "^0.0.56",
     "happy-dom": "^20.14.0",
     "nitropack": "^2.13.0",

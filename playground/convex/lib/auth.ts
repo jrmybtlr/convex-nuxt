@@ -12,15 +12,6 @@ export async function getCurrentUserId(ctx: AuthCtx): Promise<Id<'users'>> {
   return userId
 }
 
-export async function getCurrentUser(ctx: AuthCtx): Promise<Doc<'users'>> {
-  const userId = await getCurrentUserId(ctx)
-  const user = await ctx.db.get(userId)
-  if (!user) {
-    throw new Error('User not found')
-  }
-  return user
-}
-
 export async function requireTaskOwner(
   ctx: AuthCtx,
   taskId: Id<'tasks'>,

@@ -1,23 +1,8 @@
 import type { H3Event } from 'h3'
 import { createError, getCookie } from 'h3'
-import { useRuntimeConfig } from 'nitropack/runtime'
 import { resolveAuthCookieName } from '../utils/authStorage'
 import { resolveFetchToken } from '../utils/fetchToken'
-
-interface ConvexPublicConfig {
-  url?: string
-  auth?: { provider?: string, cookie?: string }
-}
-
-function readConvexConfig(event?: H3Event): ConvexPublicConfig | undefined {
-  try {
-    const config = useRuntimeConfig(event)
-    return config.public?.convex as ConvexPublicConfig | undefined
-  }
-  catch {
-    return undefined
-  }
-}
+import { readConvexConfig } from './convexConfig'
 
 /**
  * Read the Convex JWT from the configured auth cookie on this request.
