@@ -1,0 +1,40 @@
+name: Setup
+description: Install pnpm deps and prepare module stubs (with cache)
+
+inputs:
+  prepare:
+    description: Run and cache pnpm dev:prepare
+    required: false
+    default: 'true'
+
+runs:
+  using: composite
+  steps:
+    - name: Setup pnpm
+      uses: pnpm/action-setup@v6
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v7
+      with:
+        node-version: 22
+        cache: pnpm
+
+    - name: Install dependencies
+      shell: bash
+      run: pnpm install --frozen-lockfile
+
+    - name: Cache prepare outputs
+      if: inputs.prepare == 'true'
+      id: prepare-cache
+      uses: actions/cache@v4
+      with:
+        path: |
+          dist
+          .nuxt
+          playground/.nuxt
+        key: prepare-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml', 'package.json', 'build.config.ts', 'tsconfig.json', 'src/**', 'playground/package.json', 'playground/nuxt.config.ts', 'playground/tsconfig.json') }}
+
+    - name: Prepare module stubs
+      if: inputs.prepare == 'true' && steps.prepare-cache.outputs.cache-hit != 'true'
+      shell: bash
+      run: pnpm dev:prepare
