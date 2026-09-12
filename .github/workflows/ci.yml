@@ -11,8 +11,28 @@ permissions:
   contents: read
 
 jobs:
+  changes:
+    name: Changes
+    runs-on: ubuntu-latest
+    outputs:
+      run: ${{ steps.filter.outputs.run }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Detect non-playground changes
+        uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            run:
+              - '**'
+              - '!playground/**'
+
   check:
     name: Check
+    needs: changes
+    if: needs.changes.outputs.run == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -26,6 +46,8 @@ jobs:
 
   test:
     name: Test
+    needs: changes
+    if: needs.changes.outputs.run == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -39,6 +61,8 @@ jobs:
 
   typecheck:
     name: Typecheck
+    needs: changes
+    if: needs.changes.outputs.run == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -55,6 +79,8 @@ jobs:
 
   build:
     name: Build
+    needs: changes
+    if: needs.changes.outputs.run == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -69,11 +95,21 @@ jobs:
   ci:
     name: CI
     runs-on: ubuntu-latest
-    needs: [check, test, typecheck, build]
+    needs: [changes, check, test, typecheck, build]
     if: always()
     steps:
-      - name: Require all jobs
+      - name: Require verify jobs when needed
         run: |
+          if [[ "${{ needs.changes.result }}" != "success" ]]; then
+            echo "Change detection failed: ${{ needs.changes.result }}"
+            exit 1
+          fi
+
+          if [[ "${{ needs.changes.outputs.run }}" != "true" ]]; then
+            echo "Only playground/** changed — skipping verify jobs"
+            exit 0
+          fi
+
           results=(
             "${{ needs.check.result }}"
             "${{ needs.test.result }}"
