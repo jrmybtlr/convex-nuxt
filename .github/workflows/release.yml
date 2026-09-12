@@ -102,6 +102,11 @@ jobs:
           name: dist
           path: dist
 
+      # Trusted publishing (OIDC) needs npm >= 11.5.1. Node 22 ships npm 10.x,
+      # which can verify OIDC then fail the actual publish with ENEEDAUTH.
+      - name: Upgrade npm for OIDC publishing
+        run: npm install -g npm@latest
+
       - name: Release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
