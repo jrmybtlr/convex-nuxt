@@ -4,43 +4,51 @@ on:
   push:
     branches:
       - main
-    paths:
-      - 'src/**'
   workflow_dispatch:
+
+concurrency:
+  group: release-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
 
 permissions:
   contents: read
 
 jobs:
-  verify:
-    name: Verify
+  check:
+    name: Check
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v7
-        with:
-          fetch-depth: 0
 
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v6
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v7
-        with:
-          node-version: 22
-          cache: pnpm
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Prepare module stubs
-        run: pnpm dev:prepare
+      - name: Setup
+        uses: ./.github/actions/setup
 
       - name: Check (Oxfmt + Oxlint)
         run: pnpm check
 
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup
+        uses: ./.github/actions/setup
+
       - name: Test
         run: pnpm test
+
+  typecheck:
+    name: Typecheck
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup
+        uses: ./.github/actions/setup
 
       - name: Typecheck
         run: pnpm typecheck
@@ -48,13 +56,30 @@ jobs:
       - name: Typecheck playground
         run: pnpm typecheck:playground
 
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup
+        uses: ./.github/actions/setup
+
       - name: Build
         run: pnpm build
+
+      - name: Upload dist
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist
+          if-no-files-found: error
 
   release:
     name: Release
     runs-on: ubuntu-latest
-    needs: verify
+    needs: [check, test, typecheck, build]
     permissions:
       contents: write
       issues: write
@@ -66,21 +91,21 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v6
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v7
+      - name: Setup
+        uses: ./.github/actions/setup
         with:
-          node-version: 22
-          cache: pnpm
-          registry-url: https://registry.npmjs.org
+          prepare: 'false'
 
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+      - name: Download dist
+        uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist
 
-      - name: Build
-        run: pnpm build
+      # Trusted publishing (OIDC) needs npm >= 11.5.1. Node 22 ships npm 10.x,
+      # which can verify OIDC then fail the actual publish with ENEEDAUTH.
+      - name: Upgrade npm for OIDC publishing
+        run: npm install -g npm@latest
 
       - name: Release
         env:
