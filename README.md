@@ -362,16 +362,23 @@ On `/server`: `GET /api/health` is public; `GET`/`POST /api/tasks` use the cooki
 
 ## Releasing
 
-Releases run from `.github/workflows/release.yml` when commits land on `main`. Version bumps follow [conventional commits](https://www.conventionalcommits.org/):
+Releases run from `.github/workflows/release.yml` when commits that touch `src/` land on `main` (or when the workflow is run manually). Version bumps follow [conventional commits](https://www.conventionalcommits.org/):
 
 | Commit                         | Release |
 | ------------------------------ | ------- |
-| `fix:`                         | patch   |
-| `feat:`                        | minor   |
 | `feat!:` or `BREAKING CHANGE:` | major   |
-| `chore:`, `docs:`, `ci:`, …    | none    |
+| `feat:`                        | minor   |
+| anything else under `src/`     | patch   |
 
 semantic-release publishes `use-convex` to npm, tags `vX.Y.Z`, and opens a GitHub Release. The repo `package.json` version is not committed back.
+
+Publishing uses [npm trusted publishing](https://docs.npmjs.com/trusted-publishers) (OIDC), not an `NPM_TOKEN`. On [the `use-convex` package settings](https://www.npmjs.com/package/use-convex?activeTab=settings) add a GitHub Actions trusted publisher:
+
+- **Organization or user:** `jrmybtlr`
+- **Repository:** `convex-nuxt`
+- **Workflow filename:** `release.yml`
+- **Environment:** leave empty
+- **Allowed actions:** include **`npm publish`** (new publishers default to staged publish only)
 
 ## License
 

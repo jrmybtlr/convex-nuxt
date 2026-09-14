@@ -62,4 +62,4 @@ See `test/e2e/README.md`.
 
 ## Commits
 
-This repo uses [conventional commits](https://www.conventionalcommits.org/) for semantic-release (`feat:`, `fix:`, `chore:`, …).
+This repo uses [conventional commits](https://www.conventionalcommits.org/) for semantic-release. Commits that change `src/` and land on `main` always publish: `feat:` is a minor, breaking changes are a major, everything else is a patch.
