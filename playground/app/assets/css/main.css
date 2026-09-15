@@ -134,11 +134,12 @@ html.shell-html {
 
 .shell-prompt__cursor {
   display: inline-block;
-  width: 0.55rem;
+  flex-shrink: 0;
+  width: 0.6em;
   height: 1.05em;
-  margin-left: 0.1rem;
+  margin-left: 0.12em;
+  align-self: center;
   background: var(--shell-fg);
-  transform: translateY(0.12em);
   animation: shell-caret 1.05s steps(1, end) infinite;
 }
 

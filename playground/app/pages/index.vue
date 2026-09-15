@@ -115,11 +115,6 @@ const showNpm = ref(false)
 const showIdle = ref(false)
 const typing = ref<'features' | 'composables' | 'npm' | null>('features')
 
-const CHAR_MS = 40
-const BEFORE_TYPE_MS = 1000
-const AFTER_CMD_MS = 220
-const SNIPPET_MS = 80
-
 let cancelled = false
 
 function sleep(ms: number): Promise<void> {
@@ -128,14 +123,77 @@ function sleep(ms: number): Promise<void> {
   })
 }
 
+function jitter(min: number, max: number): number {
+  return Math.round(min + Math.random() * (max - min))
+}
+
+function mistype(char: string): string {
+  const neighbors: Record<string, string> = {
+    a: 's',
+    c: 'x',
+    d: 's',
+    e: 'w',
+    i: 'u',
+    l: 'k',
+    m: 'n',
+    n: 'b',
+    o: 'p',
+    p: 'o',
+    s: 'a',
+    t: 'r',
+    u: 'y',
+    v: 'c',
+  }
+  return neighbors[char] ?? (char === char.toLowerCase() ? 's' : 'S')
+}
+
+async function press(target: typeof typedFeatures, char: string): Promise<void> {
+  target.value += char
+  await nextTick()
+  await sleep(jitter(22, 48))
+}
+
+async function backspace(target: typeof typedFeatures): Promise<void> {
+  target.value = target.value.slice(0, -1)
+  await nextTick()
+  await sleep(jitter(70, 140))
+}
+
 async function typeCommand(full: string, target: typeof typedFeatures): Promise<void> {
   target.value = ''
-  for (const char of full) {
+  const chars = [...full]
+  const slipAt =
+    chars.length > 8 && Math.random() < 0.7 ? jitter(4, chars.length - 2) : -1
+  let i = 0
+
+  while (i < chars.length) {
     if (cancelled) {
       return
     }
-    target.value += char
-    await sleep(CHAR_MS)
+
+    if (i > 0 && chars[i - 1] === ' ') {
+      await sleep(jitter(320, 900))
+    } else if (i > 0 && Math.random() < 0.35) {
+      await sleep(jitter(220, 640))
+    }
+
+    const burst = jitter(2, 4)
+    for (let n = 0; n < burst && i < chars.length; n++) {
+      if (cancelled) {
+        return
+      }
+      const char = chars[i]!
+      if (i === slipAt && /[a-z]/i.test(char)) {
+        await press(target, mistype(char))
+        await sleep(jitter(280, 620))
+        await backspace(target)
+      }
+      await press(target, char)
+      i++
+      if (char === ' ' || '-/*'.includes(char)) {
+        break
+      }
+    }
   }
 }
 
@@ -152,38 +210,38 @@ function finishImmediately(): void {
 
 async function play(): Promise<void> {
   typing.value = 'features'
-  await sleep(BEFORE_TYPE_MS)
+  await sleep(jitter(350, 650))
   await typeCommand(FEATURES_CMD, typedFeatures)
   if (cancelled) {
     return
   }
   typing.value = null
-  await sleep(AFTER_CMD_MS)
+  await sleep(jitter(450, 900))
   showFeatures.value = true
   typing.value = 'composables'
-  await sleep(BEFORE_TYPE_MS)
+  await sleep(jitter(1100, 2000))
   await typeCommand(COMPOSABLES_CMD, typedComposables)
   if (cancelled) {
     return
   }
   typing.value = null
-  await sleep(AFTER_CMD_MS)
+  await sleep(jitter(450, 900))
   for (let i = 1; i <= composables.length; i++) {
     if (cancelled) {
       return
     }
     snippetCount.value = i
-    await sleep(SNIPPET_MS)
+    await sleep(jitter(50, 130))
   }
 
   typing.value = 'npm'
-  await sleep(BEFORE_TYPE_MS)
+  await sleep(jitter(1200, 2100))
   await typeCommand(NPM_CMD, typedNpm)
   if (cancelled) {
     return
   }
   typing.value = null
-  await sleep(AFTER_CMD_MS)
+  await sleep(jitter(450, 900))
   showNpm.value = true
   showIdle.value = true
 }

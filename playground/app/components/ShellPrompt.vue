@@ -44,6 +44,6 @@ defineExpose({
       spellcheck="false"
       aria-label="Command"
     />
-    <span v-else-if="typing || idle" class="shell-prompt__cursor" aria-hidden="true">█</span>
+    <span v-else-if="typing || idle" class="shell-prompt__cursor" aria-hidden="true" />
   </component>
 </template>
