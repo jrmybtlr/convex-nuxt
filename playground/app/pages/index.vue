@@ -199,6 +199,32 @@ onMounted(() => {
 onUnmounted(() => {
   cancelled = true
 })
+
+const draft = ref('')
+const log = ref<{ cmd: string; out: string }[]>([])
+const idlePrompt = ref<{ focus: () => void } | null>(null)
+
+watch(showIdle, async (visible) => {
+  if (!visible) {
+    return
+  }
+  await nextTick()
+  idlePrompt.value?.focus()
+})
+
+function runIdleCommand(): void {
+  const cmd = draft.value.trim()
+  draft.value = ''
+  if (!cmd) {
+    return
+  }
+  if (cmd === 'clear') {
+    log.value = []
+    return
+  }
+  log.value.push({ cmd, out: "I'm sorry, I'm not that kinda website." })
+  void nextTick(() => idlePrompt.value?.focus())
+}
 </script>
 
 <template>
@@ -244,7 +270,18 @@ onUnmounted(() => {
         </div>
       </template>
 
-      <ShellPrompt v-if="showIdle" idle />
+      <template v-for="(entry, i) in log" :key="i">
+        <ShellPrompt :cmd="entry.cmd" />
+        <pre class="shell-err">{{ entry.out }}</pre>
+      </template>
+
+      <ShellPrompt
+        v-if="showIdle"
+        ref="idlePrompt"
+        v-model="draft"
+        interactive
+        @submit="runIdleCommand"
+      />
     </div>
   </main>
 </template>
