@@ -1,13 +1,21 @@
 <script setup lang="ts">
+const route = useRoute()
 const { toast, toastKey } = useToast()
+const isHome = computed(() => route.path === '/')
 </script>
 
 <template>
-  <div class="min-h-dvh bg-white text-zinc-800 antialiased">
-    <div class="mx-auto max-w-xl px-4">
-      <nav class="flex gap-4 pt-8 text-sm">
+  <div :class="isHome ? 'min-h-dvh' : 'min-h-dvh bg-white text-zinc-800 antialiased'">
+    <div :class="isHome ? undefined : 'mx-auto max-w-xl px-4'">
+      <nav v-if="!isHome" class="flex gap-4 pt-8 text-sm">
         <NuxtLink
           to="/"
+          class="text-zinc-400 aria-[current=page]:text-zinc-900 hover:text-zinc-900"
+        >
+          Home
+        </NuxtLink>
+        <NuxtLink
+          to="/live"
           class="text-zinc-400 aria-[current=page]:text-zinc-900 hover:text-zinc-900"
         >
           Live

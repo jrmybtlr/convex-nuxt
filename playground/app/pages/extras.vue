@@ -55,7 +55,10 @@ const connection = useConvexConnectionState()
       >
         Files </NuxtLink
       >. Sign in on
-      <NuxtLink to="/" class="underline decoration-zinc-300 underline-offset-2 hover:text-zinc-800">
+      <NuxtLink
+        to="/live"
+        class="underline decoration-zinc-300 underline-offset-2 hover:text-zinc-800"
+      >
         Live
       </NuxtLink>
       first.

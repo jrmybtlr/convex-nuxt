@@ -91,7 +91,7 @@ describe.skipIf(!enabled)('playground full flow (live)', () => {
       const afterToggle = (await client.query(api.tasks.list, {})) as Task[]
       expect(afterToggle.find((task) => task._id === nitroTask!._id)?.completed).toBe(true)
 
-      const htmlRes = await fetchWithJar(baseURL, jar, '/')
+      const htmlRes = await fetchWithJar(baseURL, jar, '/live')
       expect(htmlRes.ok).toBe(true)
       const html = await htmlRes.text()
       expect(html).toContain(nitroTaskText)

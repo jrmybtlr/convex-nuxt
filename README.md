@@ -353,7 +353,8 @@ pnpm run dev
 
 | Route     | What it shows                                         |
 | --------- | ----------------------------------------------------- |
-| `/`       | SSR snapshot + live overlay (sign up, CRUD todos)     |
+| `/`       | Shell session of module features                      |
+| `/live`   | SSR snapshot + live overlay (sign up, CRUD todos)     |
 | `/server` | Nitro `fetchQuery` / `fetchMutation` / `fetchAction`  |
 | `/files`  | `useConvexFileUpload` (upload, list, preview, delete) |
 | `/extras` | `live: false`, pagination, action, connection state   |

@@ -107,7 +107,9 @@ await loadHealth()
       (fresh HttpClient per request) with
       <code>requireConvexAuth(event)</code> on protected routes. They are
       <strong>one-shot</strong> — not live. For SSR snapshot + WebSocket overlay, use the
-      <NuxtLink to="/" class="underline decoration-zinc-300 underline-offset-2 hover:text-zinc-800"
+      <NuxtLink
+        to="/live"
+        class="underline decoration-zinc-300 underline-offset-2 hover:text-zinc-800"
         >Live</NuxtLink
       >
       page.
