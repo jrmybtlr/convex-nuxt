@@ -14,70 +14,98 @@ const composables = [
   {
     name: 'useConvexQuery',
     kind: 'query',
-    flags: 'ssr live skip auth',
-    example: `const { data, pending, error } = await useConvexQuery(
+    flags: 'ssr live skip authenticated',
+    example: `const { data, pending, error, refresh } = await useConvexQuery(
   api.tasks.list,
   {}, // args | 'skip' | getter
+  { authenticated: true }, // wait for Convex auth before live
 )`,
   },
   {
     name: 'useConvexQueries',
     kind: 'query',
-    flags: 'batch skip',
-    example: `const results = useConvexQueries(() => ({
-  inbox: { query: api.messages.list, args: { channel: 'inbox' } },
-  later: id.value ? { query: api.messages.get, args: { id: id.value } } : 'skip',
-}))`,
+    flags: 'batch skip browser',
+    example: `// Browser-only live map (no SSR). Values: data | undefined | Error
+const results = useConvexQueries(() => ({
+  tasks: { query: api.tasks.list, args: {} },
+  files: showFiles.value
+    ? { query: api.files.list, args: {} }
+    : 'skip',
+}))
+// results.value.tasks`,
   },
   {
     name: 'useConvexPaginatedQuery',
     kind: 'query',
-    flags: 'ssr live',
-    example: `const { results, status, loadMore } = await useConvexPaginatedQuery(
+    flags: 'ssr live authenticated',
+    example: `const { results, status, isLoading, loadMore } = await useConvexPaginatedQuery(
   api.tasks.listPaginated,
   {},
-  { initialNumItems: 20 },
-)`,
+  { initialNumItems: 20, authenticated: true },
+)
+// loadMore() when status === 'CanLoadMore'`,
   },
   {
     name: 'useConvexMutation',
     kind: 'mutation',
-    flags: 'optimistic',
-    example: `const { mutate } = useConvexMutation(api.tasks.create, {
-  optimisticUpdate: (localStore, args) => { /* patch local query */ },
+    flags: 'optimistic browser',
+    example: `const { mutate, pending, error } = useConvexMutation(api.tasks.create, {
+  optimisticUpdate: (localStore, args) => {
+    const existing = localStore.getQuery(api.tasks.list, {}) ?? []
+    localStore.setQuery(api.tasks.list, {}, [
+      { _id: 'tmp', text: args.text, completed: false },
+      ...existing,
+    ])
+  },
 })
-await mutate({ text: 'Ship it' })`,
+await mutate({ text: 'Ship it' }) // browser-only`,
   },
   {
     name: 'useConvexAction',
     kind: 'action',
-    flags: '',
-    example: `const { run } = useConvexAction(api.ai.summarize)
-await run({ text: '…' })`,
+    flags: 'browser',
+    example: `const { run, pending, error } = useConvexAction(api.tasks.shout)
+const shouted = await run({ text: 'hello' }) // browser-only`,
   },
   {
     name: 'useConvexFileUpload',
     kind: 'storage',
-    flags: 'progress',
-    example: `const { upload, progress } = useConvexFileUpload({
+    flags: 'progress browser',
+    example: `const { upload, pending, error, progress } = useConvexFileUpload({
   generateUploadUrl: api.files.generateUploadUrl,
-  saveFile: api.files.save,
+  saveFile: api.files.save, // must enforce auth
 })
-await upload(file)`,
+await upload(file) // progress: 0..1 while bytes fly`,
   },
   {
     name: 'useConvexR2Upload',
     kind: 'storage',
-    flags: 'r2',
-    example: `const { upload } = useConvexR2Upload(api.r2)
-const key = await upload(file)`,
+    flags: 'r2 browser',
+    example: `// Pass r2.clientApi() exports: { generateUploadUrl, syncMetadata }
+const { upload, pending, progress } = useConvexR2Upload(api.r2)
+const key = await upload(file) // R2 object key`,
   },
   {
     name: 'useAuth',
     kind: 'auth',
-    flags: 'cookie httpOnly',
-    example: `const { signIn, signOut } = useAuth()
-await signIn('password', { email, password, flow: 'signIn' })`,
+    flags: 'convex-auth cookie httpOnly',
+    example: `const { signIn, signOut, showAuthedUi, pending, error } = useAuth()
+await signIn('password', { email, password, flow: 'signIn' })
+// Gate UI with showAuthedUi; gate queries with { authenticated: true }`,
+  },
+  {
+    name: 'prewarmQuery',
+    kind: 'query',
+    flags: 'browser',
+    example: `// Warm a live subscription before a screen mounts
+prewarmQuery(api.tasks.list, {})`,
+  },
+  {
+    name: 'useConvexConnectionState',
+    kind: 'client',
+    flags: 'reactive',
+    example: `const connection = useConvexConnectionState()
+// connection.value?.isWebSocketConnected, .hasInflightRequests, …`,
   },
   {
     name: 'fetchQuery',
@@ -90,13 +118,15 @@ return await fetchQuery(api.tasks.list, {}, { event })`,
     name: 'fetchMutation',
     kind: 'nitro',
     flags: 'server',
-    example: `return await fetchMutation(api.tasks.create, { text }, { event })`,
+    example: `requireConvexAuth(event)
+return await fetchMutation(api.tasks.create, { text }, { event })`,
   },
   {
     name: 'fetchAction',
     kind: 'nitro',
     flags: 'server',
-    example: `return await fetchAction(api.tasks.shout, { text }, { event })`,
+    example: `requireConvexAuth(event)
+return await fetchAction(api.tasks.shout, { text }, { event })`,
   },
 ] as const
 
@@ -162,8 +192,7 @@ async function backspace(target: typeof typedFeatures): Promise<void> {
 async function typeCommand(full: string, target: typeof typedFeatures): Promise<void> {
   target.value = ''
   const chars = [...full]
-  const slipAt =
-    chars.length > 8 && Math.random() < 0.7 ? jitter(4, chars.length - 2) : -1
+  const slipAt = chars.length > 8 && Math.random() < 0.7 ? jitter(4, chars.length - 2) : -1
   let i = 0
 
   while (i < chars.length) {
@@ -289,8 +318,7 @@ function runIdleCommand(): void {
   <main class="shell">
     <div class="shell-inner">
       <ShellPrompt :cmd="typedFeatures" :typing="typing === 'features'" />
-      <pre v-if="showFeatures" class="shell-md shell-boot-in"
-        ><span
+      <pre v-if="showFeatures" class="shell-md shell-boot-in"><span
           v-for="(html, i) in featureLines"
           :key="i"
           class="shell-md__line"
