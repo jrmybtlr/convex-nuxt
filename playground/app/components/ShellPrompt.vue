@@ -22,11 +22,7 @@ defineExpose({
 </script>
 
 <template>
-  <component
-    :is="interactive ? 'form' : 'p'"
-    class="shell-prompt"
-    @submit.prevent="emit('submit')"
-  >
+  <component :is="interactive ? 'form' : 'p'" class="shell-prompt" @submit.prevent="emit('submit')">
     <span class="shell-prompt__arrow">➜</span>
     <span class="shell-prompt__cwd">nuxt-app</span>
     <span class="shell-prompt__git">git:(<span class="shell-prompt__branch">main</span>)</span>
