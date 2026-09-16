@@ -1,54 +1,39 @@
 <script setup lang="ts">
+useHead({
+  htmlAttrs: {
+    class: 'shell-html',
+  },
+})
+
 const route = useRoute()
 const { toast, toastKey } = useToast()
 const isHome = computed(() => route.path === '/')
+
+const links = [
+  { to: '/', label: '~' },
+  { to: '/live', label: 'live' },
+  { to: '/server', label: 'server' },
+  { to: '/files', label: 'files' },
+  { to: '/extras', label: 'extras' },
+] as const
 </script>
 
 <template>
-  <div :class="isHome ? 'min-h-dvh' : 'min-h-dvh bg-white text-zinc-800 antialiased'">
-    <div :class="isHome ? undefined : 'mx-auto max-w-xl px-4'">
-      <nav v-if="!isHome" class="flex gap-4 pt-8 text-sm">
-        <NuxtLink
-          to="/"
-          class="text-zinc-400 aria-[current=page]:text-zinc-900 hover:text-zinc-900"
-        >
-          Home
-        </NuxtLink>
-        <NuxtLink
-          to="/live"
-          class="text-zinc-400 aria-[current=page]:text-zinc-900 hover:text-zinc-900"
-        >
-          Live
-        </NuxtLink>
-        <NuxtLink
-          to="/server"
-          class="text-zinc-400 aria-[current=page]:text-zinc-900 hover:text-zinc-900"
-        >
-          Server routes
-        </NuxtLink>
-        <NuxtLink
-          to="/files"
-          class="text-zinc-400 aria-[current=page]:text-zinc-900 hover:text-zinc-900"
-        >
-          Files
-        </NuxtLink>
-        <NuxtLink
-          to="/extras"
-          class="text-zinc-400 aria-[current=page]:text-zinc-900 hover:text-zinc-900"
-        >
-          Extras
+  <div class="shell">
+    <div class="shell-inner">
+      <nav v-if="!isHome" class="shell-nav" aria-label="Demos">
+        <span class="shell-nav__arrow" aria-hidden="true">➜</span>
+        <span class="shell-nav__cwd">demos</span>
+        <span class="shell-nav__sep" aria-hidden="true">·</span>
+        <NuxtLink v-for="link in links" :key="link.to" :to="link.to">
+          {{ link.label }}
         </NuxtLink>
       </nav>
       <NuxtPage />
     </div>
 
     <Transition name="toast">
-      <p
-        v-if="toast"
-        :key="toastKey"
-        data-testid="shout-toast"
-        class="fixed inset-x-0 bottom-6 z-50 mx-auto w-fit rounded-full bg-zinc-900 px-4 py-2 text-sm text-white shadow-lg"
-      >
+      <p v-if="toast" :key="toastKey" data-testid="shout-toast" class="shell-toast">
         {{ toast }}
       </p>
     </Transition>

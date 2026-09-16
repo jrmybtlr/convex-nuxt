@@ -39,80 +39,80 @@ async function onRemove(taskId: Id<'tasks'>) {
 
 <template>
   <div>
-    <div class="mt-6 flex items-center justify-between gap-4">
-      <p class="text-sm text-zinc-500">
-        <span v-if="isLoading && !showAuthedUi">Checking session…</span>
-        <span v-else-if="isAuthenticated">Signed in — your tasks sync live.</span>
-        <span v-else-if="showAuthedUi">Restoring session…</span>
-        <span v-else>Sign in to manage tasks.</span>
+    <div class="shell-row shell-row--between shell-row--flush">
+      <p class="shell-dim">
+        <span v-if="isLoading && !showAuthedUi">checking session…</span>
+        <span v-else-if="isAuthenticated">signed in — tasks sync live</span>
+        <span v-else-if="showAuthedUi">restoring session…</span>
+        <span v-else>sign in to manage tasks</span>
       </p>
       <button
         v-if="showAuthedUi"
         type="button"
-        class="rounded-md border border-zinc-200 px-3 py-1.5 text-sm disabled:opacity-50"
+        class="shell-btn"
         :disabled="authPending"
         @click="signOut()"
       >
-        Sign out
+        sign out
       </button>
     </div>
 
     <!-- showAuthedUi keeps SSR HTML mounted while Convex confirms -->
     <template v-if="showAuthedUi">
-      <form class="mt-6 flex flex-wrap gap-2" @submit.prevent="addTask">
-        <input
-          v-model="draft"
-          placeholder="New task"
-          class="min-w-0 flex-1 rounded-md border border-zinc-200 px-3 py-1.5 text-sm outline-none focus:border-zinc-400 disabled:opacity-50"
-          :disabled="!isAuthenticated"
-        />
-        <button
-          type="submit"
-          class="rounded-md border border-zinc-200 px-3 py-1.5 text-sm disabled:opacity-50"
-          :disabled="!isAuthenticated"
-        >
-          {{ creating ? 'Adding…' : 'Add' }}
-        </button>
-        <button
-          type="button"
-          class="rounded-md border border-zinc-200 px-3 py-1.5 text-sm disabled:opacity-50"
-          :disabled="!isAuthenticated"
-          @click="refresh()"
-        >
-          Refresh
-        </button>
-      </form>
-
-      <p v-if="pending" class="mt-4 text-sm text-zinc-400">Loading…</p>
-      <p v-else-if="error" class="mt-4 text-sm text-red-700">
-        {{ error.message }}
-      </p>
-
-      <ul v-else class="mt-4">
-        <li
-          v-for="task in data ?? []"
-          :key="task._id"
-          class="flex items-center gap-3 border-b border-zinc-100 py-2 text-sm last:border-0"
-        >
+      <section class="shell-panel">
+        <h2 class="shell-panel__title">tasks</h2>
+        <p class="shell-panel__meta">useConvexQuery + useConvexMutation</p>
+        <form class="shell-row" @submit.prevent="addTask">
           <input
-            type="checkbox"
-            :checked="task.completed"
+            v-model="draft"
+            placeholder="new task"
+            class="shell-input shell-input--grow"
             :disabled="!isAuthenticated"
-            @change="onToggle(task._id)"
           />
-          <span class="flex-1" :class="{ 'text-zinc-400 line-through': task.completed }">
-            {{ task.text }}
-          </span>
+          <button type="submit" class="shell-btn" :disabled="!isAuthenticated">
+            {{ creating ? '…' : 'add' }}
+          </button>
           <button
             type="button"
-            class="text-zinc-400 hover:text-zinc-900 disabled:opacity-50"
+            class="shell-btn"
             :disabled="!isAuthenticated"
-            @click="onRemove(task._id)"
+            @click="refresh()"
           >
-            Delete
+            refresh
           </button>
-        </li>
-      </ul>
+        </form>
+
+        <p v-if="pending" class="shell-muted shell-stack--md">loading…</p>
+        <p v-else-if="error" class="shell-err shell-stack--md">
+          {{ error.message }}
+        </p>
+
+        <ul v-else class="shell-list">
+          <li
+            v-for="task in data ?? []"
+            :key="task._id"
+            class="shell-list__item"
+            :class="{ 'shell-list__item--done': task.completed }"
+          >
+            <input
+              type="checkbox"
+              class="shell-check"
+              :checked="task.completed"
+              :disabled="!isAuthenticated"
+              @change="onToggle(task._id)"
+            />
+            <span class="shell-grow">{{ task.text }}</span>
+            <button
+              type="button"
+              class="shell-btn shell-btn--danger"
+              :disabled="!isAuthenticated"
+              @click="onRemove(task._id)"
+            >
+              delete
+            </button>
+          </li>
+        </ul>
+      </section>
     </template>
   </div>
 </template>

@@ -29,49 +29,46 @@ async function submit() {
 </script>
 
 <template>
-  <section class="mt-8 rounded-lg border border-zinc-200 p-4">
-    <h2 class="text-sm font-medium">
-      {{ mode === 'signIn' ? 'Sign in' : 'Create account' }}
+  <section class="shell-panel">
+    <h2 class="shell-panel__title">
+      {{ mode === 'signIn' ? 'sign-in' : 'create-account' }}
     </h2>
+    <p class="shell-panel__meta">password auth via useAuth()</p>
     <form class="mt-4 grid gap-3" @submit.prevent="submit">
-      <label class="grid gap-1 text-sm">
-        <span class="text-zinc-500">Email</span>
+      <label class="shell-field">
+        <span class="shell-field__label">email</span>
         <input
           v-model="email"
           type="email"
           required
           autocomplete="email"
-          class="rounded-md border border-zinc-200 px-3 py-1.5 text-sm outline-none focus:border-zinc-400"
+          class="shell-input"
         />
       </label>
-      <label class="grid gap-1 text-sm">
-        <span class="text-zinc-500">Password</span>
+      <label class="shell-field">
+        <span class="shell-field__label">password</span>
         <input
           v-model="password"
           type="password"
           required
           minlength="8"
           autocomplete="current-password"
-          class="rounded-md border border-zinc-200 px-3 py-1.5 text-sm outline-none focus:border-zinc-400"
+          class="shell-input"
         />
       </label>
-      <p v-if="error" class="text-sm text-red-700">
+      <p v-if="error" class="shell-err">
         {{ displayError(error) }}
       </p>
-      <div class="flex flex-wrap gap-2">
-        <button
-          type="submit"
-          class="rounded-md border border-zinc-200 px-3 py-1.5 text-sm disabled:opacity-50"
-          :disabled="pending"
-        >
-          {{ pending ? 'Working…' : mode === 'signIn' ? 'Sign in' : 'Sign up' }}
+      <div class="shell-row">
+        <button type="submit" class="shell-btn" :disabled="pending">
+          {{ pending ? '…' : mode === 'signIn' ? 'sign in' : 'sign up' }}
         </button>
         <button
           type="button"
-          class="rounded-md px-3 py-1.5 text-sm text-zinc-500 hover:text-zinc-900"
+          class="shell-btn shell-btn--ghost"
           @click="mode = mode === 'signIn' ? 'signUp' : 'signIn'"
         >
-          {{ mode === 'signIn' ? 'Need an account?' : 'Have an account?' }}
+          {{ mode === 'signIn' ? 'need an account?' : 'have an account?' }}
         </button>
       </div>
     </form>

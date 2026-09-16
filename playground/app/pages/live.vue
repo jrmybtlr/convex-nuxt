@@ -2,6 +2,8 @@
 import AuthForm from '../components/AuthForm.vue'
 import TasksDemo from '../components/TasksDemo.vue'
 
+useHead({ title: 'Live · use-convex' })
+
 const config = useRuntimeConfig()
 const url = computed(() => (config.public.convex as { url?: string } | undefined)?.url)
 
@@ -31,26 +33,27 @@ async function runShout() {
 </script>
 
 <template>
-  <main class="py-10">
-    <h1 class="text-xl font-medium tracking-tight">Convex + Nuxt SSR</h1>
-    <p class="mt-3 text-sm leading-relaxed text-zinc-500">
+  <main class="shell-page">
+    <ShellPrompt cmd="./live --ssr --auth" />
+    <h1 class="shell-page__title">Convex + Nuxt SSR</h1>
+    <p class="shell-page__lead">
       HTML is rendered from an HttpClient snapshot (JWT cookie when signed in). After hydration the
       live subscription takes over without a loading flash. Auth shell uses
       <code>showAuthedUi</code> / <code>&lt;Authenticated&gt;</code> so SSR HTML survives client
       confirmation.
     </p>
 
-    <p v-if="!url" class="mt-6 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">
+    <p v-if="!url" class="shell-warn">
       Run <code>pnpm run dev:backend</code> to write the Convex URL into <code>.env.local</code>,
       then restart <code>pnpm run dev</code>.
     </p>
 
     <template v-else>
       <AuthLoading>
-        <p class="mt-6 text-sm text-zinc-500">Resolving auth…</p>
+        <p class="shell-dim shell-stack">resolving auth…</p>
       </AuthLoading>
       <AuthRefreshing>
-        <p class="mt-6 text-sm text-zinc-500">Refreshing session…</p>
+        <p class="shell-dim shell-stack">refreshing session…</p>
       </AuthRefreshing>
       <Authenticated>
         <TasksDemo />
@@ -59,23 +62,20 @@ async function runShout() {
         <AuthForm />
       </Unauthenticated>
 
-      <form
-        class="mt-8 flex flex-wrap gap-2 border-t border-zinc-100 pt-6"
-        @submit.prevent="runShout"
-      >
-        <input
-          v-model="shoutDraft"
-          placeholder="Text to shout"
-          class="min-w-0 flex-1 rounded-md border border-zinc-200 px-3 py-1.5 text-sm outline-none focus:border-zinc-400"
-        />
-        <button
-          type="submit"
-          class="rounded-md border border-zinc-200 px-3 py-1.5 text-sm disabled:opacity-50"
-          :disabled="shouting"
-        >
-          {{ shouting ? '…' : 'Shout' }}
-        </button>
-      </form>
+      <section class="shell-panel">
+        <h2 class="shell-panel__title">shout</h2>
+        <p class="shell-panel__meta">POST /api/shout via Nitro fetchAction</p>
+        <form class="shell-row" @submit.prevent="runShout">
+          <input
+            v-model="shoutDraft"
+            placeholder="text to shout"
+            class="shell-input shell-input--grow"
+          />
+          <button type="submit" class="shell-btn" :disabled="shouting">
+            {{ shouting ? '…' : 'shout' }}
+          </button>
+        </form>
+      </section>
     </template>
   </main>
 </template>

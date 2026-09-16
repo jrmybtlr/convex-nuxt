@@ -5,9 +5,6 @@ import { highlightMdLines } from '../utils/highlightMd'
 
 useHead({
   title: 'use-convex',
-  htmlAttrs: {
-    class: 'shell-html',
-  },
 })
 
 const composables = [
@@ -315,59 +312,57 @@ function runIdleCommand(): void {
 </script>
 
 <template>
-  <main class="shell">
-    <div class="shell-inner">
-      <ShellPrompt :cmd="typedFeatures" :typing="typing === 'features'" />
-      <pre v-if="showFeatures" class="shell-md shell-boot-in"><span
-          v-for="(html, i) in featureLines"
-          :key="i"
-          class="shell-md__line"
-          v-html="html || '&nbsp;'"
-      /></pre>
+  <main>
+    <ShellPrompt :cmd="typedFeatures" :typing="typing === 'features'" />
+    <pre v-if="showFeatures" class="shell-md shell-boot-in"><span
+        v-for="(html, i) in featureLines"
+        :key="i"
+        class="shell-md__line"
+        v-html="html || '&nbsp;'"
+    /></pre>
 
-      <template v-if="typedComposables || typing === 'composables'">
-        <ShellPrompt :cmd="typedComposables" :typing="typing === 'composables'" />
-        <ShellSnippet
-          v-for="item in composables.slice(0, snippetCount)"
-          :key="item.name"
-          class="shell-boot-in"
-          :name="item.name"
-          :kind="item.kind"
-          :flags="item.flags"
-          :code="item.example"
-        />
-      </template>
-
-      <template v-if="typedNpm || typing === 'npm'">
-        <ShellPrompt :cmd="typedNpm" :typing="typing === 'npm'" />
-        <div v-if="showNpm" class="shell-npm shell-boot-in">
-          <p><span class="shell-ok">+</span> use-convex</p>
-          <p><span class="shell-ok">+</span> convex</p>
-          <p class="shell-npm__meta">
-            <a href="https://www.npmjs.com/package/use-convex" target="_blank" rel="noreferrer"
-              >npmjs.com/package/use-convex</a
-            >
-          </p>
-          <p class="shell-npm__meta">
-            <a href="https://github.com/jrmybtlr/convex-nuxt" target="_blank" rel="noreferrer"
-              >github.com/jrmybtlr/convex-nuxt</a
-            >
-          </p>
-        </div>
-      </template>
-
-      <template v-for="(entry, i) in log" :key="i">
-        <ShellPrompt :cmd="entry.cmd" />
-        <pre class="shell-err">{{ entry.out }}</pre>
-      </template>
-
-      <ShellPrompt
-        v-if="showIdle"
-        ref="idlePrompt"
-        v-model="draft"
-        interactive
-        @submit="runIdleCommand"
+    <template v-if="typedComposables || typing === 'composables'">
+      <ShellPrompt :cmd="typedComposables" :typing="typing === 'composables'" />
+      <ShellSnippet
+        v-for="item in composables.slice(0, snippetCount)"
+        :key="item.name"
+        class="shell-boot-in"
+        :name="item.name"
+        :kind="item.kind"
+        :flags="item.flags"
+        :code="item.example"
       />
-    </div>
+    </template>
+
+    <template v-if="typedNpm || typing === 'npm'">
+      <ShellPrompt :cmd="typedNpm" :typing="typing === 'npm'" />
+      <div v-if="showNpm" class="shell-npm shell-boot-in">
+        <p><span class="shell-ok">+</span> use-convex</p>
+        <p><span class="shell-ok">+</span> convex</p>
+        <p class="shell-npm__meta">
+          <a href="https://www.npmjs.com/package/use-convex" target="_blank" rel="noreferrer"
+            >npmjs.com/package/use-convex</a
+          >
+        </p>
+        <p class="shell-npm__meta">
+          <a href="https://github.com/jrmybtlr/convex-nuxt" target="_blank" rel="noreferrer"
+            >github.com/jrmybtlr/convex-nuxt</a
+          >
+        </p>
+      </div>
+    </template>
+
+    <template v-for="(entry, i) in log" :key="i">
+      <ShellPrompt :cmd="entry.cmd" />
+      <pre class="shell-err">{{ entry.out }}</pre>
+    </template>
+
+    <ShellPrompt
+      v-if="showIdle"
+      ref="idlePrompt"
+      v-model="draft"
+      interactive
+      @submit="runIdleCommand"
+    />
   </main>
 </template>

@@ -1,4 +1,6 @@
 <script setup lang="ts">
+useHead({ title: 'Server · use-convex' })
+
 type Task = {
   _id: string
   text: string
@@ -98,115 +100,83 @@ await loadHealth()
 </script>
 
 <template>
-  <main class="py-10">
-    <h1 class="text-xl font-medium tracking-tight">Server routes</h1>
-    <p class="mt-3 text-sm leading-relaxed text-zinc-500">
-      These calls go through Nitro
-      <code>fetchQuery</code> / <code>fetchMutation</code> /
-      <code>fetchAction</code>
-      (fresh HttpClient per request) with
+  <main class="shell-page">
+    <ShellPrompt cmd="./server --nitro" />
+    <h1 class="shell-page__title">Server routes</h1>
+    <p class="shell-page__lead">
+      These calls go through Nitro <code>fetchQuery</code> / <code>fetchMutation</code> /
+      <code>fetchAction</code> (fresh HttpClient per request) with
       <code>requireConvexAuth(event)</code> on protected routes. They are
       <strong>one-shot</strong> — not live. For SSR snapshot + WebSocket overlay, use the
-      <NuxtLink
-        to="/live"
-        class="underline decoration-zinc-300 underline-offset-2 hover:text-zinc-800"
-        >Live</NuxtLink
-      >
-      page.
+      <NuxtLink to="/live">Live</NuxtLink> page.
     </p>
 
-    <section class="mt-8 rounded-lg border border-zinc-200 p-4">
-      <h2 class="text-sm font-medium">GET /api/health</h2>
-      <p class="mt-1 text-sm text-zinc-500">
-        Public query — no cookie. Try
-        <code>curl localhost:3000/api/health</code>.
+    <section class="shell-panel">
+      <h2 class="shell-panel__title">GET /api/health</h2>
+      <p class="shell-panel__meta">
+        Public query — no cookie. Try <code>curl localhost:3000/api/health</code>.
       </p>
-      <button
-        type="button"
-        class="mt-3 rounded-md border border-zinc-200 px-3 py-1.5 text-sm disabled:opacity-50"
-        @click="loadHealth()"
-      >
-        Refresh
-      </button>
-      <pre v-if="health" class="mt-3 overflow-x-auto rounded-md bg-zinc-50 p-3 text-xs">{{
-        health
-      }}</pre>
-      <p v-if="healthError" class="mt-2 text-sm text-red-700">
-        {{ healthError }}
-      </p>
+      <div class="shell-row">
+        <button type="button" class="shell-btn" @click="loadHealth()">refresh</button>
+      </div>
+      <pre v-if="health" class="shell-pre">{{ health }}</pre>
+      <p v-if="healthError" class="shell-err shell-stack--sm">{{ healthError }}</p>
     </section>
 
-    <section class="mt-6 rounded-lg border border-zinc-200 p-4">
-      <h2 class="text-sm font-medium">GET/POST /api/tasks</h2>
-      <p class="mt-1 text-sm text-zinc-500">
+    <section class="shell-panel">
+      <h2 class="shell-panel__title">GET/POST /api/tasks</h2>
+      <p class="shell-panel__meta">
         Authenticated via the Convex auth cookie (<code>{ event }</code> +
         <code>requireConvexAuth</code>). Sign in on Live first.
       </p>
 
-      <form class="mt-4 flex flex-wrap gap-2" @submit.prevent="createTask">
+      <form class="shell-row" @submit.prevent="createTask">
         <input
           v-model="draft"
-          placeholder="New task via Nitro"
-          class="min-w-0 flex-1 rounded-md border border-zinc-200 px-3 py-1.5 text-sm outline-none focus:border-zinc-400"
+          placeholder="new task via Nitro"
+          class="shell-input shell-input--grow"
         />
-        <button
-          type="submit"
-          class="rounded-md border border-zinc-200 px-3 py-1.5 text-sm disabled:opacity-50"
-          :disabled="creating"
-        >
-          {{ creating ? 'Adding…' : 'POST create' }}
+        <button type="submit" class="shell-btn" :disabled="creating">
+          {{ creating ? '…' : 'POST create' }}
         </button>
-        <button
-          type="button"
-          class="rounded-md border border-zinc-200 px-3 py-1.5 text-sm disabled:opacity-50"
-          :disabled="tasksPending"
-          @click="loadTasks()"
-        >
-          {{ tasksPending ? 'Loading…' : 'GET list' }}
+        <button type="button" class="shell-btn" :disabled="tasksPending" @click="loadTasks()">
+          {{ tasksPending ? '…' : 'GET list' }}
         </button>
       </form>
 
-      <p v-if="tasksError" class="mt-2 text-sm text-red-700">
-        {{ tasksError }}
-      </p>
+      <p v-if="tasksError" class="shell-err shell-stack--sm">{{ tasksError }}</p>
 
-      <ul v-if="tasks" class="mt-3">
+      <ul v-if="tasks" class="shell-list">
         <li
           v-for="task in tasks"
           :key="task._id"
-          class="border-b border-zinc-100 py-2 text-sm last:border-0"
-          :class="{ 'text-zinc-400 line-through': task.completed }"
+          class="shell-list__item"
+          :class="{ 'shell-list__item--done': task.completed }"
         >
           {{ task.text }}
         </li>
       </ul>
-      <p v-else-if="!tasksError && !tasksPending" class="mt-3 text-sm text-zinc-400">
+      <p v-else-if="!tasksError && !tasksPending" class="shell-muted shell-stack--md">
         Click “GET list” after signing in.
       </p>
     </section>
 
-    <section class="mt-6 mb-8 rounded-lg border border-zinc-200 p-4">
-      <h2 class="text-sm font-medium">POST /api/shout</h2>
-      <p class="mt-1 text-sm text-zinc-500">
+    <section class="shell-panel">
+      <h2 class="shell-panel__title">POST /api/shout</h2>
+      <p class="shell-panel__meta">
         Authenticated <code>fetchAction</code> demo — sign in on Live first.
       </p>
-      <form class="mt-4 flex flex-wrap gap-2" @submit.prevent="runShout">
+      <form class="shell-row" @submit.prevent="runShout">
         <input
           v-model="shoutDraft"
-          placeholder="Text to shout"
-          class="min-w-0 flex-1 rounded-md border border-zinc-200 px-3 py-1.5 text-sm outline-none focus:border-zinc-400"
+          placeholder="text to shout"
+          class="shell-input shell-input--grow"
         />
-        <button
-          type="submit"
-          class="rounded-md border border-zinc-200 px-3 py-1.5 text-sm disabled:opacity-50"
-          :disabled="shouting"
-        >
+        <button type="submit" class="shell-btn" :disabled="shouting">
           {{ shouting ? '…' : 'POST shout' }}
         </button>
       </form>
-      <pre v-if="shoutResult" class="mt-3 overflow-x-auto rounded-md bg-zinc-50 p-3 text-xs">{{
-        shoutResult
-      }}</pre>
+      <pre v-if="shoutResult" class="shell-pre">{{ shoutResult }}</pre>
     </section>
   </main>
 </template>
