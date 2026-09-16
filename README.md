@@ -26,7 +26,7 @@ export default defineNuxtConfig({
 <script setup lang="ts">
 import { api } from '~~/convex/_generated/api'
 
-const { data, pending, error } = await useConvexQuery(api.tasks.list, {})
+const { data, pending, error } = await useConvexQuery(api.tasks.list, {}, { authenticated: true })
 </script>
 ```
 
@@ -58,6 +58,7 @@ Set `convex.server: false` to skip SSR snapshots globally, or pass `{ server: fa
 const { data, pending, error, refresh } = await useConvexQuery(
   api.tasks.list,
   {}, // args, a ref / getter, or 'skip'
+  { authenticated: true }, // wait for Convex auth before live subscribe
 )
 ```
 
@@ -84,11 +85,14 @@ prewarmQuery(api.tasks.list, {})
 
 ### Several queries
 
+Browser-only live map (no SSR). Each value is `data | undefined` (loading) | `Error`. Combine with `useConvexQuery` when you need an SSR snapshot for known queries.
+
 ```ts
 const results = useConvexQueries(() => ({
-  inbox: { query: api.messages.list, args: { channel: 'inbox' } },
-  later: selectedId.value ? { query: api.messages.get, args: { id: selectedId.value } } : 'skip',
+  tasks: { query: api.tasks.list, args: {} },
+  files: showFiles.value ? { query: api.files.list, args: {} } : 'skip',
 }))
+// results.value.tasks
 ```
 
 ### Pagination
@@ -97,8 +101,9 @@ const results = useConvexQueries(() => ({
 const { results, status, isLoading, loadMore } = await useConvexPaginatedQuery(
   api.tasks.listPaginated,
   {},
-  { initialNumItems: 20 },
+  { initialNumItems: 20, authenticated: true },
 )
+// loadMore() when status === 'CanLoadMore'
 ```
 
 The first page is SSR'd. On the browser, every loaded page stays live. `loadMore` fetches the next page.
@@ -115,10 +120,10 @@ const { mutate, pending, error } = useConvexMutation(api.tasks.create, {
     ])
   },
 })
-await mutate({ text: 'Ship it' })
+await mutate({ text: 'Ship it' }) // browser-only
 
-const { run } = useConvexAction(api.ai.summarize)
-await run({ text: '…' })
+const { run, pending, error } = useConvexAction(api.tasks.shout)
+const shouted = await run({ text: 'hello' }) // browser-only
 ```
 
 For paginated lists:
@@ -133,7 +138,7 @@ insertAtTop({
 
 Also available: `insertAtBottomIfLoaded`, `insertAtPosition`, `optimisticallyUpdateValueInPaginatedQuery`.
 
-`useConvex()` returns the browser `ConvexClient` when you need an escape hatch. `useConvexConnectionState()` is a reactive WebSocket `ConnectionState`.
+`useConvex()` returns the browser `ConvexClient` when you need an escape hatch. `useConvexConnectionState()` is a reactive `ShallowRef<ConnectionState | null>` (WebSocket status: `isWebSocketConnected`, `hasInflightRequests`, …).
 
 ## File uploads
 
@@ -145,7 +150,7 @@ const { upload, pending, error, progress } = useConvexFileUpload({
   saveFile: api.files.save, // ({ storageId, name, contentType, size, ... }) => Id<"files">
 })
 
-await upload(file)
+await upload(file) // progress: 0..1 while bytes fly
 // optional extra save args: await upload(file, { caption: '…' })
 ```
 
@@ -169,8 +174,9 @@ export const { generateUploadUrl, syncMetadata } = r2.clientApi({
 ```
 
 ```ts
+// Pass r2.clientApi() exports: { generateUploadUrl, syncMetadata }
 const { upload, pending, error, progress } = useConvexR2Upload(api.r2)
-const key = await upload(file)
+const key = await upload(file) // R2 object key
 ```
 
 That runs `generateUploadUrl` → `PUT` to the signed URL → `syncMetadata({ key })`, with XHR progress. Use built-in `useConvexFileUpload` for Convex storage; use this helper when you adopt the R2 component.
@@ -303,6 +309,15 @@ export default defineEventHandler(async (event) => {
 })
 ```
 
+```ts
+// server/api/shout.post.ts
+export default defineEventHandler(async (event) => {
+  requireConvexAuth(event)
+  const { text } = await readBody(event)
+  return await fetchAction(api.tasks.shout, { text }, { event })
+})
+```
+
 `fetchAction` uses the same options. Each helper builds a fresh `ConvexHttpClient`. Override with `{ token }` when you already have a JWT. `getConvexToken(event)` reads the cookie without throwing.
 
 ## Config
@@ -353,7 +368,7 @@ pnpm run dev
 
 | Route     | What it shows                                         |
 | --------- | ----------------------------------------------------- |
-| `/`       | Shell session of module features                      |
+| `/`       | Shell session: features + composable call-shape demos |
 | `/live`   | SSR snapshot + live overlay (sign up, CRUD todos)     |
 | `/server` | Nitro `fetchQuery` / `fetchMutation` / `fetchAction`  |
 | `/files`  | `useConvexFileUpload` (upload, list, preview, delete) |

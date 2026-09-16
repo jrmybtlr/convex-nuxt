@@ -11,3 +11,5 @@ SSR snapshots hydrate through the Nuxt payload, then the browser overlays a live
 - File uploads (Convex storage + R2)
 - Nitro `fetchQuery` / `fetchMutation` / `fetchAction`
 - Nuxt DevTools Convex tab
+
+Snippets below show the call shape. Flags: `ssr` HttpClient snapshot, `live` WebSocket overlay, `authenticated` wait for Convex auth, `browser` client-only, `server` Nitro.

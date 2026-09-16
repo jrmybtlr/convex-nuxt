@@ -32,5 +32,8 @@ export function highlightMdLine(line: string): string {
 }
 
 export function highlightMdLines(source: string): string[] {
-  return source.replace(/\n$/, '').split('\n').map((line) => highlightMdLine(line))
+  return source
+    .replace(/\n$/, '')
+    .split('\n')
+    .map((line) => highlightMdLine(line))
 }
