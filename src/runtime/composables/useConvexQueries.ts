@@ -15,9 +15,7 @@ import { useConvexContext } from '../utils/context'
 import type { ConvexRef } from '../utils/functionReference'
 
 /** One entry in a {@link useConvexQueries} request map. */
-export type ConvexQueryRequestEntry<
-  Query extends ConvexRef<'query'> = ConvexRef<'query'>,
-> = {
+export type ConvexQueryRequestEntry<Query extends ConvexRef<'query'> = ConvexRef<'query'>> = {
   query: Query
   args: FunctionArgs<Query>
 }
@@ -39,10 +37,7 @@ export type ConvexQueriesResult<Request extends ConvexQueriesRequest> = {
     : undefined
 }
 
-function subscriptionSignature(
-  query: ConvexRef<'query'>,
-  args: Record<string, Value>,
-): string {
+function subscriptionSignature(query: ConvexRef<'query'>, args: Record<string, Value>): string {
   return `${getFunctionName(query)}:${JSON.stringify(convexToJson(args))}`
 }
 
