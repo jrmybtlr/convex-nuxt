@@ -1,4 +1,5 @@
-import type { FunctionArgs, FunctionReference, FunctionReturnType } from 'convex/server'
+import type { FunctionArgs, FunctionReturnType } from 'convex/server'
+import type { ConvexRef } from './functionReference'
 import type { OptimisticLocalStore } from 'convex/browser'
 import type { Value } from 'convex/values'
 import { compareValues, convexToJson } from 'convex/values'
@@ -106,12 +107,12 @@ export function insertAtBottomIfLoaded<Query extends PaginatedQueryReference>(op
   })
 }
 
-type LocalQueryResult<Query extends FunctionReference<'query'>> = {
+type LocalQueryResult<Query extends ConvexRef<'query'>> = {
   args: FunctionArgs<Query>
   value: undefined | FunctionReturnType<Query>
 }
 
-type LoadedResult<Query extends FunctionReference<'query'>> = {
+type LoadedResult<Query extends ConvexRef<'query'>> = {
   args: FunctionArgs<Query>
   value: FunctionReturnType<Query>
 }

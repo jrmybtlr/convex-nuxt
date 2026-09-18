@@ -1,5 +1,6 @@
-import type { FunctionArgs, FunctionReference } from 'convex/server'
+import type { FunctionArgs } from 'convex/server'
 import { onScopeDispose } from 'vue'
+import type { ConvexRef } from '../utils/functionReference'
 import { useConvex } from './useConvex'
 
 /**
@@ -9,7 +10,7 @@ import { useConvex } from './useConvex'
  * Returns an unsubscribe function. When called during Vue `setup`, the
  * subscription is also cleaned up with the current effect scope.
  */
-export function prewarmQuery<Query extends FunctionReference<'query'>>(
+export function prewarmQuery<Query extends ConvexRef<'query'>>(
   query: Query,
   args: FunctionArgs<Query> = {} as FunctionArgs<Query>,
 ): () => void {

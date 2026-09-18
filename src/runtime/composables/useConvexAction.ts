@@ -1,6 +1,7 @@
-import type { FunctionArgs, FunctionReference, FunctionReturnType } from 'convex/server'
+import type { FunctionArgs, FunctionReturnType } from 'convex/server'
 import { toValue, type MaybeRefOrGetter } from 'vue'
 import { useConvexContext } from '../utils/context'
+import type { ConvexRef } from '../utils/functionReference'
 import { createPendingErrorState } from '../utils/pendingError'
 
 /**
@@ -9,7 +10,7 @@ import { createPendingErrorState } from '../utils/pendingError'
  * Safe to call during SSR setup — the ConvexClient is only touched when
  * `run()` runs in the browser.
  */
-export function useConvexAction<Action extends FunctionReference<'action'>>(action: Action) {
+export function useConvexAction<Action extends ConvexRef<'action'>>(action: Action) {
   const ctx = useConvexContext()
   const { error, pending, withPending } = createPendingErrorState()
 

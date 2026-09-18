@@ -1,4 +1,4 @@
-import type { FunctionArgs, FunctionReference, FunctionReturnType } from 'convex/server'
+import type { FunctionArgs, FunctionReturnType } from 'convex/server'
 import { getFunctionName } from 'convex/server'
 import type { Value } from 'convex/values'
 import { convexToJson } from 'convex/values'
@@ -12,11 +12,10 @@ import {
   type MaybeRefOrGetter,
 } from 'vue'
 import { useConvexContext } from '../utils/context'
+import type { ConvexRef } from '../utils/functionReference'
 
 /** One entry in a {@link useConvexQueries} request map. */
-export type ConvexQueryRequestEntry<
-  Query extends FunctionReference<'query'> = FunctionReference<'query'>,
-> = {
+export type ConvexQueryRequestEntry<Query extends ConvexRef<'query'> = ConvexRef<'query'>> = {
   query: Query
   args: FunctionArgs<Query>
 }
@@ -32,16 +31,13 @@ export type ConvexQueriesResult<Request extends ConvexQueriesRequest> = {
     query: infer Query
     args: infer _Args
   }
-    ? Query extends FunctionReference<'query'>
+    ? Query extends ConvexRef<'query'>
       ? FunctionReturnType<Query> | undefined | Error
       : undefined
     : undefined
 }
 
-function subscriptionSignature(
-  query: FunctionReference<'query'>,
-  args: Record<string, Value>,
-): string {
+function subscriptionSignature(query: ConvexRef<'query'>, args: Record<string, Value>): string {
   return `${getFunctionName(query)}:${JSON.stringify(convexToJson(args))}`
 }
 

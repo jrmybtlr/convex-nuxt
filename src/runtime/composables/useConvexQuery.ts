@@ -1,4 +1,5 @@
-import type { FunctionArgs, FunctionReference, FunctionReturnType } from 'convex/server'
+import type { FunctionArgs, FunctionReturnType } from 'convex/server'
+import type { ConvexRef } from '../utils/functionReference'
 import { convexToJson, jsonToConvex } from 'convex/values'
 import { useAsyncData, useRuntimeConfig } from 'nuxt/app'
 import {
@@ -17,7 +18,7 @@ import { resolveQueryOverlay } from '../utils/overlay'
 import { readHydratedPayloadCache } from '../utils/payloadCache'
 import { convexQueryKey } from '../utils/queryKey'
 
-export type ConvexQueryArgs<Query extends FunctionReference<'query'>> = FunctionArgs<Query> | 'skip'
+export type ConvexQueryArgs<Query extends ConvexRef<'query'>> = FunctionArgs<Query> | 'skip'
 
 export interface UseConvexQueryOptions {
   /**
@@ -80,7 +81,7 @@ export interface UseConvexQueryReturn<T> {
  * a duplicate HTTP request. On the browser, a live `ConvexClient` subscription
  * overlays the payload (`live ?? payload`), matching Next.js `usePreloadedQuery`.
  */
-export async function useConvexQuery<Query extends FunctionReference<'query'>>(
+export async function useConvexQuery<Query extends ConvexRef<'query'>>(
   query: Query,
   args: MaybeRefOrGetter<ConvexQueryArgs<Query>> = {} as ConvexQueryArgs<Query>,
   options: UseConvexQueryOptions = {},

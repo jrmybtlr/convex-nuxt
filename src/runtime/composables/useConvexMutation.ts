@@ -1,12 +1,13 @@
-import type { FunctionArgs, FunctionReference, FunctionReturnType } from 'convex/server'
+import type { FunctionArgs, FunctionReturnType } from 'convex/server'
 import type { OptimisticUpdate } from 'convex/browser'
 import { toValue, type MaybeRefOrGetter } from 'vue'
 import { useConvexContext } from '../utils/context'
+import type { ConvexRef } from '../utils/functionReference'
 import { createPendingErrorState } from '../utils/pendingError'
 
 export type { OptimisticUpdate }
 
-export interface UseConvexMutationOptions<Mutation extends FunctionReference<'mutation'>> {
+export interface UseConvexMutationOptions<Mutation extends ConvexRef<'mutation'>> {
   /**
    * Local query update applied while the mutation is in flight.
    * Passed through to `ConvexClient.mutation` → `BaseConvexClient`.
@@ -23,7 +24,7 @@ export interface UseConvexMutationOptions<Mutation extends FunctionReference<'mu
  * Pass `{ optimisticUpdate }` to apply temporary local query results while
  * the mutation is in flight (same contract as React `withOptimisticUpdate`).
  */
-export function useConvexMutation<Mutation extends FunctionReference<'mutation'>>(
+export function useConvexMutation<Mutation extends ConvexRef<'mutation'>>(
   mutation: Mutation,
   options: UseConvexMutationOptions<Mutation> = {},
 ) {

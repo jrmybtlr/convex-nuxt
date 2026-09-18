@@ -1,4 +1,4 @@
-import type { FunctionReference } from 'convex/server'
+import type { ConvexRef } from './functionReference'
 import { getFunctionName } from 'convex/server'
 import { convexToJson } from 'convex/values'
 
@@ -9,7 +9,7 @@ import { convexToJson } from 'convex/values'
  * auth-gated queries lose the SSR payload on the client.
  */
 export function convexQueryKey(
-  query: FunctionReference<'query'>,
+  query: ConvexRef<'query'>,
   args: unknown,
   explicitKey?: string,
 ): string {

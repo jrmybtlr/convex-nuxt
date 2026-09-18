@@ -1,6 +1,7 @@
 import type {
   FunctionArgs,
   FunctionReference,
+  FunctionReference_future,
   FunctionReturnType,
   PaginationOptions,
   PaginationResult,
@@ -27,12 +28,19 @@ import { convexQueryKey } from '../utils/queryKey'
  * A query usable with {@link useConvexPaginatedQuery}.
  * Must accept `paginationOpts` and return {@link PaginationResult}.
  */
-export type PaginatedQueryReference = FunctionReference<
-  'query',
-  'public',
-  { paginationOpts: PaginationOptions },
-  PaginationResult<unknown>
->
+export type PaginatedQueryReference =
+  | FunctionReference<
+      'query',
+      'public',
+      { paginationOpts: PaginationOptions },
+      PaginationResult<unknown>
+    >
+  | FunctionReference_future<
+      'query',
+      'public',
+      { paginationOpts: PaginationOptions },
+      PaginationResult<unknown>
+    >
 
 export type PaginatedQueryArgs<Query extends PaginatedQueryReference> = Omit<
   FunctionArgs<Query>,
