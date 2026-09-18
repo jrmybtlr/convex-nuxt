@@ -1,8 +1,9 @@
-import type { FunctionArgs, FunctionReference, FunctionReturnType } from 'convex/server'
+import type { FunctionArgs, FunctionReturnType } from 'convex/server'
 import type { H3Event } from 'h3'
 import { getCookie } from 'h3'
 import { createHttpClient } from '../utils/http'
 import { resolveAuthCookieName } from '../utils/authStorage'
+import type { ConvexRef } from '../utils/functionReference'
 import { resolveFetchToken } from '../utils/fetchToken'
 import { missingConvexUrlError } from '../utils/errors'
 import { readConvexConfig } from './convexConfig'
@@ -77,7 +78,7 @@ function setupClient(options: ConvexFetchOptions = {}) {
  * })
  * ```
  */
-export async function fetchQuery<Query extends FunctionReference<'query'>>(
+export async function fetchQuery<Query extends ConvexRef<'query'>>(
   query: Query,
   args?: FunctionArgs<Query>,
   options?: ConvexFetchOptions,
@@ -89,7 +90,7 @@ export async function fetchQuery<Query extends FunctionReference<'query'>>(
 /**
  * One-shot mutation via ConvexHttpClient. Use in Nitro routes / server middleware.
  */
-export async function fetchMutation<Mutation extends FunctionReference<'mutation'>>(
+export async function fetchMutation<Mutation extends ConvexRef<'mutation'>>(
   mutation: Mutation,
   args?: FunctionArgs<Mutation>,
   options?: ConvexFetchOptions,
@@ -103,7 +104,7 @@ export async function fetchMutation<Mutation extends FunctionReference<'mutation
 /**
  * One-shot action via ConvexHttpClient. Use in Nitro routes / server middleware.
  */
-export async function fetchAction<Action extends FunctionReference<'action'>>(
+export async function fetchAction<Action extends ConvexRef<'action'>>(
   action: Action,
   args?: FunctionArgs<Action>,
   options?: ConvexFetchOptions,

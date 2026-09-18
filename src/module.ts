@@ -134,6 +134,7 @@ export type {
   ConvexQueriesResult,
 } from './runtime/composables/useConvexQueries'
 export type { ConvexFetchOptions } from './runtime/server/fetch'
+export type { ConvexRef } from './runtime/utils/functionReference'
 export type { ConvexNuxtContext, ConvexAuthContext } from './runtime/utils/context'
 export type { ConnectionState } from './runtime/composables/useConvexConnectionState'
 export type { ConvexGate } from './runtime/composables/useConvexGate'

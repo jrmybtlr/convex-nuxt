@@ -27,7 +27,7 @@ importers:
         version: 0.41.1
       '@convex-dev/auth':
         specifier: ^0.0.95
-        version: 0.0.95(@auth/core@0.41.1)(convex@1.45.0)
+        version: 0.0.95(@auth/core@0.41.1)(convex@1.46.0)
       '@nuxt/module-builder':
         specifier: ^1.0.0
         version: 1.0.3(@nuxt/cli@3.37.0(@nuxt/schema@4.5.2)(cac@6.7.14)(magicast@0.5.4))(@voidzero-dev/vite-plus-core@0.3.1(@types/node@26.5.0)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(typescript@5.9.3)(yaml@2.9.1))(@volar/typescript@2.4.28)(@vue/compiler-core@3.5.42)(@vue/language-core@3.3.11)(esbuild@0.28.2)(rolldown@1.2.7)(rollup@4.63.1)(typescript@5.9.3)(vue-tsc@3.3.11(typescript@5.9.3))(vue@3.5.42(typescript@5.9.3))
@@ -36,16 +36,16 @@ importers:
         version: 4.5.2
       '@nuxt/test-utils':
         specifier: ^3.23.0
-        version: 3.23.0(crossws@0.4.12(srvx@1.0.4))(happy-dom@20.14.0)(magicast@0.5.4)(typescript@5.9.3)(vitest@4.1.11)
+        version: 3.23.0(crossws@0.4.12(srvx@1.0.4))(happy-dom@20.14.0)(magicast@0.5.4)(typescript@5.9.3)(vitest@4.1.11(@types/node@26.5.0)(@vitest/browser-preview@4.1.11)(@voidzero-dev/vite-plus-core@0.3.1(@types/node@26.5.0)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(typescript@5.9.3)(yaml@2.9.1))(happy-dom@20.14.0))
       '@types/node':
         specifier: ^26.5.0
         version: 26.5.0
       convex:
-        specifier: ^1.45.0
-        version: 1.45.0
+        specifier: ^1.46.0
+        version: 1.46.0
       convex-test:
         specifier: ^0.0.56
-        version: 0.0.56(convex@1.45.0)
+        version: 0.0.56(convex@1.46.0)
       happy-dom:
         specifier: ^20.14.0
         version: 20.14.0
@@ -81,10 +81,10 @@ importers:
         version: 0.41.3
       '@convex-dev/auth':
         specifier: ^0.0.95
-        version: 0.0.95(@auth/core@0.41.3)(convex@1.45.0)
+        version: 0.0.95(@auth/core@0.41.3)(convex@1.46.0)
       convex:
-        specifier: ^1.45.0
-        version: 1.45.0
+        specifier: ^1.46.0
+        version: 1.46.0
       use-convex:
         specifier: workspace:*
         version: link:..
@@ -94,7 +94,7 @@ importers:
         version: 4.3.3(@voidzero-dev/vite-plus-core@0.3.1(@types/node@26.5.0)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(typescript@5.9.3)(yaml@2.9.1))
       convex-test:
         specifier: ^0.0.56
-        version: 0.0.56(convex@1.45.0)
+        version: 0.0.56(convex@1.46.0)
       tailwindcss:
         specifier: ^4.3.3
         version: 4.3.3
@@ -2750,8 +2750,8 @@ packages:
     peerDependencies:
       convex: ^1.43.0
 
-  convex@1.45.0:
-    resolution: {integrity: sha512-AV3B56Ptu/14d76g3urBJ50dwpiZa6uJaLT84OWox5aCwZIJiuAamdjv3lLHDzs8vv5kC31anEZohhUe3qJ2bA==}
+  convex@1.46.0:
+    resolution: {integrity: sha512-dhBwDQTZDOhi5SUGAX17EWNehCdNq6/UFrSL0eLZuGfMkdsQbCVWVRZCzbZ5CF+/pgvoGxtApbEoTSipqL4JTw==}
     engines: {node: '>=20.0.0', npm: '>=7.0.0'}
     hasBin: true
     peerDependencies:
@@ -6300,12 +6300,12 @@ snapshots:
   '@colors/colors@1.5.0':
     optional: true
 
-  '@convex-dev/auth@0.0.95(@auth/core@0.41.1)(convex@1.45.0)':
+  '@convex-dev/auth@0.0.95(@auth/core@0.41.1)(convex@1.46.0)':
     dependencies:
       '@auth/core': 0.41.1
       '@oslojs/crypto': 1.0.1
       '@oslojs/encoding': 1.1.0
-      convex: 1.45.0
+      convex: 1.46.0
       cookie: 1.1.1
       is-network-error: 1.3.2
       jose: 5.10.0
@@ -6315,12 +6315,12 @@ snapshots:
       path-to-regexp: 6.3.0
       server-only: 0.0.1
 
-  '@convex-dev/auth@0.0.95(@auth/core@0.41.3)(convex@1.45.0)':
+  '@convex-dev/auth@0.0.95(@auth/core@0.41.3)(convex@1.46.0)':
     dependencies:
       '@auth/core': 0.41.3
       '@oslojs/crypto': 1.0.1
       '@oslojs/encoding': 1.1.0
-      convex: 1.45.0
+      convex: 1.46.0
       cookie: 1.1.1
       is-network-error: 1.3.2
       jose: 5.10.0
@@ -7055,7 +7055,7 @@ snapshots:
       rc9: 3.1.0
       std-env: 4.2.0
 
-  '@nuxt/test-utils@3.23.0(crossws@0.4.12(srvx@1.0.4))(happy-dom@20.14.0)(magicast@0.5.4)(typescript@5.9.3)(vitest@4.1.11)':
+  '@nuxt/test-utils@3.23.0(crossws@0.4.12(srvx@1.0.4))(happy-dom@20.14.0)(magicast@0.5.4)(typescript@5.9.3)(vitest@4.1.11(@types/node@26.5.0)(@vitest/browser-preview@4.1.11)(@voidzero-dev/vite-plus-core@0.3.1(@types/node@26.5.0)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(typescript@5.9.3)(yaml@2.9.1))(happy-dom@20.14.0))':
     dependencies:
       '@clack/prompts': 1.0.0-alpha.9
       '@nuxt/kit': 3.21.11(magicast@0.5.4)
@@ -7083,7 +7083,7 @@ snapshots:
       tinyexec: 1.3.1
       ufo: 1.6.4
       unplugin: 2.3.11
-      vitest-environment-nuxt: 1.0.1(crossws@0.4.12(srvx@1.0.4))(happy-dom@20.14.0)(magicast@0.5.4)(typescript@5.9.3)(vitest@4.1.11)
+      vitest-environment-nuxt: 1.0.1(crossws@0.4.12(srvx@1.0.4))(happy-dom@20.14.0)(magicast@0.5.4)(typescript@5.9.3)(vitest@4.1.11(@types/node@26.5.0)(@vitest/browser-preview@4.1.11)(@voidzero-dev/vite-plus-core@0.3.1(@types/node@26.5.0)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(typescript@5.9.3)(yaml@2.9.1))(happy-dom@20.14.0))
       vue: 3.5.42(typescript@5.9.3)
     optionalDependencies:
       happy-dom: 20.14.0
@@ -8629,11 +8629,11 @@ snapshots:
 
   convert-source-map@2.0.0: {}
 
-  convex-test@0.0.56(convex@1.45.0):
+  convex-test@0.0.56(convex@1.46.0):
     dependencies:
-      convex: 1.45.0
+      convex: 1.46.0
 
-  convex@1.45.0:
+  convex@1.46.0:
     dependencies:
       esbuild: 0.27.0
       prettier: 3.9.6
@@ -11921,9 +11921,9 @@ snapshots:
       - utf-8-validate
       - yaml
 
-  vitest-environment-nuxt@1.0.1(crossws@0.4.12(srvx@1.0.4))(happy-dom@20.14.0)(magicast@0.5.4)(typescript@5.9.3)(vitest@4.1.11):
+  vitest-environment-nuxt@1.0.1(crossws@0.4.12(srvx@1.0.4))(happy-dom@20.14.0)(magicast@0.5.4)(typescript@5.9.3)(vitest@4.1.11(@types/node@26.5.0)(@vitest/browser-preview@4.1.11)(@voidzero-dev/vite-plus-core@0.3.1(@types/node@26.5.0)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(typescript@5.9.3)(yaml@2.9.1))(happy-dom@20.14.0)):
     dependencies:
-      '@nuxt/test-utils': 3.23.0(crossws@0.4.12(srvx@1.0.4))(happy-dom@20.14.0)(magicast@0.5.4)(typescript@5.9.3)(vitest@4.1.11)
+      '@nuxt/test-utils': 3.23.0(crossws@0.4.12(srvx@1.0.4))(happy-dom@20.14.0)(magicast@0.5.4)(typescript@5.9.3)(vitest@4.1.11(@types/node@26.5.0)(@vitest/browser-preview@4.1.11)(@voidzero-dev/vite-plus-core@0.3.1(@types/node@26.5.0)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(typescript@5.9.3)(yaml@2.9.1))(happy-dom@20.14.0))
     transitivePeerDependencies:
       - '@cucumber/cucumber'
       - '@jest/globals'

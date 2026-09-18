@@ -1,6 +1,7 @@
-import type { FunctionArgs, FunctionReference, FunctionReturnType } from 'convex/server'
+import type { FunctionArgs, FunctionReturnType } from 'convex/server'
 import { computed, ref } from 'vue'
 import { useConvexContext } from '../utils/context'
+import type { ConvexRef } from '../utils/functionReference'
 
 /** Built-in fields the composable always passes into `saveFile`. */
 export type ConvexFileUploadMeta = {
@@ -10,14 +11,14 @@ export type ConvexFileUploadMeta = {
   size: number
 }
 
-export type ConvexFileUploadExtraArgs<SaveFile extends FunctionReference<'mutation'>> = Omit<
+export type ConvexFileUploadExtraArgs<SaveFile extends ConvexRef<'mutation'>> = Omit<
   FunctionArgs<SaveFile>,
   'storageId' | 'name' | 'contentType' | 'size'
 >
 
 export interface UseConvexFileUploadOptions<
-  GenerateUploadUrl extends FunctionReference<'mutation'>,
-  SaveFile extends FunctionReference<'mutation'>,
+  GenerateUploadUrl extends ConvexRef<'mutation'>,
+  SaveFile extends ConvexRef<'mutation'>,
 > {
   /**
    * Mutation that returns a short-lived Convex upload URL
@@ -31,7 +32,7 @@ export interface UseConvexFileUploadOptions<
   saveFile: SaveFile
 }
 
-type UploadUrlResult = FunctionReturnType<FunctionReference<'mutation'>>
+type UploadUrlResult = FunctionReturnType<ConvexRef<'mutation'>>
 
 function isUploadUrl(value: unknown): value is string {
   return typeof value === 'string' && value.length > 0
@@ -119,8 +120,8 @@ export function postFileToUploadUrl(
  * unauthenticated `generateUploadUrl`.
  */
 export function useConvexFileUpload<
-  GenerateUploadUrl extends FunctionReference<'mutation'>,
-  SaveFile extends FunctionReference<'mutation'>,
+  GenerateUploadUrl extends ConvexRef<'mutation'>,
+  SaveFile extends ConvexRef<'mutation'>,
 >(options: UseConvexFileUploadOptions<GenerateUploadUrl, SaveFile>) {
   const ctx = useConvexContext()
   const error = ref<Error | null>(null)

@@ -1,14 +1,15 @@
-import type { FunctionArgs, FunctionReference, FunctionReturnType } from 'convex/server'
+import type { FunctionArgs, FunctionReturnType } from 'convex/server'
 import { computed, ref } from 'vue'
 import { useConvexContext } from '../utils/context'
+import type { ConvexRef } from '../utils/functionReference'
 
 /**
  * Subset of `@convex-dev/r2` `clientApi()` exports needed for client uploads.
  * Pass `api.example` (or any module that re-exports these two mutations).
  */
 export type ConvexR2UploadApi = {
-  generateUploadUrl: FunctionReference<'mutation'>
-  syncMetadata: FunctionReference<'mutation'>
+  generateUploadUrl: ConvexRef<'mutation'>
+  syncMetadata: ConvexRef<'mutation'>
 }
 
 export type ConvexR2UploadProgress = {
