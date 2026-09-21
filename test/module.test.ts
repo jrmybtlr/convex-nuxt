@@ -141,6 +141,17 @@ describe('createHttpClient', () => {
     })
     expect(client.url).toContain('example.convex.cloud')
   })
+
+  it('applies adminToken via setAdminAuth and clears user JWT', () => {
+    const client = createHttpClient('https://example.convex.cloud', {
+      token: 'user-jwt',
+      adminToken: 'deploy-key',
+      skipConvexDeploymentUrlCheck: true,
+    })
+    const state = client as unknown as { auth?: string; adminAuth?: string }
+    expect(state.adminAuth).toBe('deploy-key')
+    expect(state.auth).toBeUndefined()
+  })
 })
 
 describe('skip does not call HttpClient.query', () => {
@@ -399,6 +410,63 @@ describe('authStorage helpers', () => {
     expect(shouldConsumeOAuthCode({ code: 'abc', verifier: 'v' })).toBe(true)
     expect(shouldConsumeOAuthCode({ code: 'abc', verifier: null })).toBe(false)
     expect(shouldConsumeOAuthCode({ code: null, verifier: 'v' })).toBe(false)
+  })
+
+  it('honors shouldHandleCode boolean and function gates', () => {
+    expect(shouldConsumeOAuthCode({ code: 'abc', verifier: 'v', shouldHandleCode: false })).toBe(
+      false,
+    )
+    expect(shouldConsumeOAuthCode({ code: 'abc', verifier: 'v', shouldHandleCode: true })).toBe(
+      true,
+    )
+    expect(
+      shouldConsumeOAuthCode({
+        code: 'abc',
+        verifier: 'v',
+        shouldHandleCode: () => false,
+      }),
+    ).toBe(false)
+  })
+})
+
+describe('configureConvexAuth / token storage', () => {
+  beforeEach(async () => {
+    const { resetConvexAuthClientOptionsForTests, resetInMemoryTokenStorageForTests } =
+      await import('../src/runtime/utils/authClientOptions')
+    resetConvexAuthClientOptionsForTests()
+    resetInMemoryTokenStorageForTests()
+  })
+
+  it('merges module defaults with configureConvexAuth overrides', async () => {
+    const { configureConvexAuth, setConvexAuthModuleDefaults, getConvexAuthClientOptions } =
+      await import('../src/runtime/utils/authClientOptions')
+
+    setConvexAuthModuleDefaults({
+      storageNamespace: 'from-module',
+      shouldHandleCode: true,
+      storage: 'localStorage',
+    })
+    configureConvexAuth({
+      shouldHandleCode: () => false,
+      replaceURL: async () => {},
+    })
+
+    const opts = getConvexAuthClientOptions()
+    expect(opts.storageNamespace).toBe('from-module')
+    expect(opts.storage).toBe('localStorage')
+    expect(typeof opts.shouldHandleCode).toBe('function')
+    expect(typeof opts.replaceURL).toBe('function')
+  })
+
+  it('routes readLocal/writeLocal through inMemory storage', async () => {
+    const { configureConvexAuth } = await import('../src/runtime/utils/authClientOptions')
+    const { readLocal, writeLocal } = await import('../src/runtime/utils/authStorage')
+
+    configureConvexAuth({ storage: 'inMemory' })
+    writeLocal('k', 'v')
+    expect(readLocal('k')).toBe('v')
+    writeLocal('k', null)
+    expect(readLocal('k')).toBeNull()
   })
 })
 

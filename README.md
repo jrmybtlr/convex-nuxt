@@ -88,12 +88,19 @@ prewarmQuery(api.tasks.list, {})
 Browser-only live map (no SSR). Each value is `data | undefined` (loading) | `Error`. Combine with `useConvexQuery` when you need an SSR snapshot for known queries.
 
 ```ts
-const results = useConvexQueries(() => ({
-  tasks: { query: api.tasks.list, args: {} },
-  files: showFiles.value ? { query: api.files.list, args: {} } : 'skip',
-}))
+const results = useConvexQueries(
+  () => ({
+    tasks: { query: api.tasks.list, args: {} },
+    files: showFiles.value ? { query: api.files.list, args: {} } : 'skip',
+    // Per-entry gate (overrides the options bag when set):
+    // admin: { query: api.admin.stats, args: {}, authenticated: true },
+  }),
+  { authenticated: true }, // wait for Convex auth before any subscribe
+)
 // results.value.tasks
 ```
+
+`'skip'` still wins for missing ids / feature flags. Prefer `{ authenticated: true }` over wrapping every private entry yourself.
 
 ### Pagination
 
@@ -193,9 +200,33 @@ convex: {
   auth: {
     provider: 'convex-auth',
     // cookie defaults to 'convex_jwt'
+    // storageNamespace: 'myapp',       // optional; default = deployment URL
+    // storage: 'localStorage',         // or 'inMemory' (verifier uses a short-lived cookie)
+    // shouldHandleCode: true,          // set false to ignore ?code=
   },
 }
 ```
+
+For non-default OAuth / callback flows (JS router `replaceURL`, function `shouldHandleCode`, custom `TokenStorage`), call `configureConvexAuth` from a client plugin that runs before the auth plugin:
+
+```ts
+// plugins/convex-auth-options.client.ts
+export default defineNuxtPlugin({
+  name: 'convex-auth-options',
+  enforce: 'pre',
+  setup() {
+    const route = useRoute()
+    configureConvexAuth({
+      replaceURL: (url) => navigateTo(url, { replace: true }),
+      shouldHandleCode: () => route.path === '/auth/callback',
+      // storage: window.sessionStorage, // may be async; signIn waits before redirect
+      // storageNamespace: 'myapp',
+    })
+  },
+})
+```
+
+`storage: 'inMemory'` keeps JWTs in memory. The OAuth verifier is a short-lived cookie so the `?code=` callback still works after the IdP redirect. Custom storage may return Promises; `signIn` waits for writes before navigating.
 
 ```vue
 <script setup lang="ts">
@@ -318,7 +349,7 @@ export default defineEventHandler(async (event) => {
 })
 ```
 
-`fetchAction` uses the same options. Each helper builds a fresh `ConvexHttpClient`. Override with `{ token }` when you already have a JWT. `getConvexToken(event)` reads the cookie without throwing.
+`fetchAction` uses the same options. Each helper builds a fresh `ConvexHttpClient`. Override with `{ token }` when you already have a JWT. Pass `{ adminToken }` (deploy key / admin key) for privileged server tooling — same as Next.js `fetchQuery` (user `token` is ignored when `adminToken` is set). `getConvexToken(event)` reads the cookie without throwing.
 
 ## Config
 
@@ -332,6 +363,9 @@ convex: {
     cookie: 'convex_jwt',
     httpOnly: false,
     presentCookie: 'convex_auth_present',
+    storage: 'localStorage', // or 'inMemory'
+    // storageNamespace: 'myapp',
+    // shouldHandleCode: true,
   },
 }
 ```

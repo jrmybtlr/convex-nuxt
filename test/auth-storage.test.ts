@@ -5,16 +5,25 @@ import { beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 import { computed, nextTick, ref } from 'vue'
 import {
   readLocal,
-  writeLocal,
+  readVerifierAsync,
   storageKey,
   JWT_STORAGE_KEY,
   REFRESH_TOKEN_STORAGE_KEY,
+  VERIFIER_STORAGE_KEY,
+  writeLocal,
+  writeVerifier,
 } from '../src/runtime/utils/authStorage'
+import {
+  configureConvexAuth,
+  resetConvexAuthClientOptionsForTests,
+  resetInMemoryTokenStorageForTests,
+} from '../src/runtime/utils/authClientOptions'
 import { resetAuthMutexesForTests } from '../src/runtime/utils/authMutex'
 
 const CONVEX_URL = 'https://example.convex.cloud'
 const jwtKey = storageKey(JWT_STORAGE_KEY, CONVEX_URL)
 const refreshKey = storageKey(REFRESH_TOKEN_STORAGE_KEY, CONVEX_URL)
+const verifierKey = storageKey(VERIFIER_STORAGE_KEY, CONVEX_URL)
 
 const { cookieRef, stateStore, actionMock } = vi.hoisted(() => {
   // vitest hoisted factories run before ESM imports resolve
@@ -117,6 +126,14 @@ describe('auth token helpers', () => {
     stateStore.clear()
     actionMock.mockReset()
     resetAuthMutexesForTests()
+    resetConvexAuthClientOptionsForTests()
+    resetInMemoryTokenStorageForTests()
+    document.cookie.split(';').forEach((part) => {
+      const name = part.split('=')[0]?.trim()
+      if (name) {
+        document.cookie = `${name}=; Max-Age=0; Path=/`
+      }
+    })
     // happy-dom exposes a broken navigator.locks stub — force the
     // in-memory mutex path used in browsers without Web Locks.
     Object.defineProperty(navigator, 'locks', {
@@ -176,5 +193,87 @@ describe('auth token helpers', () => {
     expect(readLocal(jwtKey)).toBeNull()
     expect(readLocal(refreshKey)).toBeNull()
     expect(cookieRef.value).toBeNull()
+  })
+
+  it('keeps the OAuth verifier in a cookie when token storage is in-memory', async () => {
+    configureConvexAuth({ storage: 'inMemory', storageNamespace: CONVEX_URL })
+    await writeVerifier(verifierKey, 'ver-1')
+    resetInMemoryTokenStorageForTests()
+    expect(readLocal(verifierKey)).toBeNull()
+    await expect(readVerifierAsync(verifierKey)).resolves.toBe('ver-1')
+    await writeVerifier(verifierKey, null)
+    await expect(readVerifierAsync(verifierKey)).resolves.toBeNull()
+  })
+
+  it('waits for async token storage before the IdP redirect', async () => {
+    const order: string[] = []
+    const store = new Map<string, string>()
+    configureConvexAuth({
+      storage: {
+        getItem: async (key) => store.get(key) ?? null,
+        setItem: async (key, value) => {
+          order.push('set:start')
+          await new Promise((resolve) => setTimeout(resolve, 20))
+          store.set(key, value)
+          order.push('set:done')
+        },
+        removeItem: async (key) => {
+          store.delete(key)
+        },
+      },
+    })
+    actionMock.mockResolvedValue({
+      redirect: 'https://github.com/login/oauth/authorize',
+      verifier: 'ver-1',
+    })
+
+    let href = 'http://localhost/'
+    const originalLocation = window.location
+    const fakeLocation = {
+      pathname: '/',
+      search: '',
+      hash: '',
+      get href() {
+        return href
+      },
+      set href(value: string) {
+        order.push('redirect')
+        href = value
+      },
+    }
+    Object.defineProperty(window, 'location', {
+      configurable: true,
+      value: fakeLocation,
+    })
+
+    try {
+      const { signIn } = await import('../src/runtime/composables/useAuth')
+      await signIn('github')
+      expect(order).toEqual(['set:start', 'set:done', 'redirect'])
+      expect(store.get(verifierKey)).toBe('ver-1')
+      expect(href).toBe('https://github.com/login/oauth/authorize')
+    } finally {
+      Object.defineProperty(window, 'location', {
+        configurable: true,
+        value: originalLocation,
+      })
+    }
+  })
+
+  it('clears loading when replaceURL throws', async () => {
+    configureConvexAuth({
+      replaceURL: () => {
+        throw new Error('router blew up')
+      },
+    })
+    writeLocal(verifierKey, 'ver-1')
+    window.history.replaceState({}, '', '/callback?code=abc')
+
+    const { consumeOAuthCodeFromUrl, useAuthProviderState } =
+      await import('../src/runtime/composables/useAuth')
+    await expect(consumeOAuthCodeFromUrl()).resolves.toBe(false)
+    expect(actionMock).not.toHaveBeenCalled()
+    const { isLoading } = useAuthProviderState()
+    expect(isLoading.value).toBe(false)
   })
 })

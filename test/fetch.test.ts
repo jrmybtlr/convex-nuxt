@@ -7,7 +7,14 @@ const { query, mutation, action, createHttpClient } = vi.hoisted(() => {
   const mutation = vi.fn()
   const action = vi.fn()
   const createHttpClient = vi.fn(
-    (_url: string, _options?: { token?: string; skipConvexDeploymentUrlCheck?: boolean }) => ({
+    (
+      _url: string,
+      _options?: {
+        token?: string
+        adminToken?: string
+        skipConvexDeploymentUrlCheck?: boolean
+      },
+    ) => ({
       query,
       mutation,
       action,
@@ -189,5 +196,22 @@ describe('fetchQuery / fetchMutation / fetchAction', () => {
       },
     )
     expect(action).toHaveBeenCalledWith(runThing, { n: 1 })
+  })
+
+  it('passes adminToken and ignores user token', async () => {
+    const { fetchQuery } = await import('../src/runtime/server/fetch')
+
+    await fetchQuery(
+      listTasks,
+      {},
+      {
+        url: 'https://example.convex.cloud',
+        token: 'user-jwt',
+        adminToken: 'deploy-key',
+      },
+    )
+    expect(createHttpClient).toHaveBeenCalledWith('https://example.convex.cloud', {
+      adminToken: 'deploy-key',
+    })
   })
 })

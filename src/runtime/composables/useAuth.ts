@@ -6,16 +6,21 @@ import { useConvexAuth } from './useConvexAuth'
 import { missingConvexUrlError, unreachableConvexUrlError } from '../utils/errors'
 import { withRefreshMutex } from '../utils/authMutex'
 import { useAuthJwtCookie, useAuthPresentCookie } from '../utils/authCookie'
+import { getConvexAuthClientOptions, setConvexAuthModuleDefaults } from '../utils/authClientOptions'
 import {
   flattenSignInParams,
   isHttpOnlyAuth,
   JWT_STORAGE_KEY,
-  readLocal,
+  readLocalAsync,
+  readStored,
+  readVerifier,
+  readVerifierAsync,
   REFRESH_TOKEN_STORAGE_KEY,
   shouldConsumeOAuthCode,
   storageKey,
   VERIFIER_STORAGE_KEY,
-  writeLocal,
+  writeLocalAsync,
+  writeVerifier,
   type ConvexAuthConfig,
 } from '../utils/authStorage'
 import { tryUseConvexContext } from '../utils/context'
@@ -132,8 +137,8 @@ export async function signIn(
   session.error.value = null
   try {
     const flatParams = flattenSignInParams(params)
-    const existingVerifier = readLocal(session.verifierKey.value) ?? undefined
-    writeLocal(session.verifierKey.value, null)
+    const existingVerifier = (await readVerifierAsync(session.verifierKey.value)) ?? undefined
+    await writeVerifier(session.verifierKey.value, null)
 
     const result = await callSignIn(convexUrl, {
       provider,
@@ -144,9 +149,11 @@ export async function signIn(
     if (result.redirect !== undefined) {
       const url = parseOAuthRedirect(result.redirect)
       if (result.verifier) {
-        writeLocal(session.verifierKey.value, result.verifier)
+        // Persist before navigation so async storage and the in-memory
+        // verifier cookie finish before the IdP redirect unloads the page.
+        await writeVerifier(session.verifierKey.value, result.verifier)
       }
-      if (import.meta.client) {
+      if (inBrowser()) {
         window.location.href = url.toString()
       }
       return { signingIn: false, redirect: url }
@@ -184,7 +191,7 @@ export async function signOut(): Promise<void> {
   session.error.value = null
   try {
     if (convexUrl) {
-      const token = readLocal(session.jwtKey.value)
+      const token = await readLocalAsync(session.jwtKey.value)
       const http = new ConvexHttpClient(convexUrl)
       if (token) {
         http.setAuth(token)
@@ -233,12 +240,23 @@ export function hydrateAuthFromStorage(): void {
     return
   }
 
-  const token = readLocal(session.jwtKey.value)
-  session.hasSession.value = token !== null
-  session.isLoading.value = false
-  if (token) {
-    setJwtCookie(token)
+  const stored = readStored(session.jwtKey.value)
+  const applyToken = (token: string | null) => {
+    session.hasSession.value = token !== null
+    session.isLoading.value = false
+    if (token) {
+      setJwtCookie(token)
+    }
   }
+  if (stored instanceof Promise) {
+    session.isLoading.value = true
+    void stored.then(applyToken).catch(() => {
+      session.hasSession.value = false
+      session.isLoading.value = false
+    })
+    return
+  }
+  applyToken(stored)
 }
 
 /** @internal */
@@ -274,13 +292,13 @@ export async function getAuthToken({
   }
 
   if (!forceRefreshToken) {
-    return readLocal(session.jwtKey.value)
+    return await readLocalAsync(session.jwtKey.value)
   }
 
   return withRefreshMutex(session.refreshKey.value, async () => {
-    const refreshToken = readLocal(session.refreshKey.value)
+    const refreshToken = await readLocalAsync(session.refreshKey.value)
     if (!refreshToken) {
-      persistTokens(session, null)
+      await persistTokens(session, null)
       return null
     }
 
@@ -288,21 +306,32 @@ export async function getAuthToken({
       const result = await callSignInWithRetry(convexUrl, { refreshToken })
       const tokens = result.tokens ?? null
       if (!tokens) {
-        persistTokens(session, null)
+        await persistTokens(session, null)
         return null
       }
-      persistTokens(session, tokens)
+      await persistTokens(session, tokens)
       return tokens.token
     } catch {
-      persistTokens(session, null)
+      await persistTokens(session, null)
       return null
     }
   })
 }
 
+/**
+ * Browser runtime. Nuxt sets `import.meta.client` to false on the server.
+ * Vitest leaves it unset, so a real `window` still counts as the browser.
+ */
+function inBrowser(): boolean {
+  if (import.meta.client) {
+    return true
+  }
+  return import.meta.client !== false && typeof window !== 'undefined'
+}
+
 /** @internal */
 export function hasPendingOAuthCallback(): boolean {
-  if (!import.meta.client) {
+  if (!inBrowser()) {
     return false
   }
   const session = useAuthSession()
@@ -310,13 +339,28 @@ export function hasPendingOAuthCallback(): boolean {
     return false
   }
   const code = new URLSearchParams(window.location.search).get('code')
-  const verifier = readLocal(session.verifierKey.value)
-  return shouldConsumeOAuthCode({ code, verifier })
+  if (!code) {
+    return false
+  }
+  const gate = getConvexAuthClientOptions().shouldHandleCode
+  if (gate === false || (typeof gate === 'function' && !gate())) {
+    return false
+  }
+  const verifier = readVerifier(session.verifierKey.value)
+  if (verifier instanceof Promise) {
+    // Async TokenStorage — consumeOAuthCodeFromUrl awaits the verifier.
+    return true
+  }
+  return shouldConsumeOAuthCode({
+    code,
+    verifier,
+    shouldHandleCode: gate,
+  })
 }
 
 /** @internal */
 export async function consumeOAuthCodeFromUrl(): Promise<boolean> {
-  if (!import.meta.client) {
+  if (!inBrowser()) {
     return false
   }
   const session = useAuthSession()
@@ -325,21 +369,41 @@ export async function consumeOAuthCodeFromUrl(): Promise<boolean> {
   }
 
   const code = new URLSearchParams(window.location.search).get('code')
-  const verifier = readLocal(session.verifierKey.value)
-  if (!shouldConsumeOAuthCode({ code, verifier })) {
+  const verifier = await readVerifierAsync(session.verifierKey.value)
+  const gate = getConvexAuthClientOptions().shouldHandleCode
+  if (
+    !shouldConsumeOAuthCode({
+      code,
+      verifier,
+      shouldHandleCode: gate,
+    })
+  ) {
     return false
   }
 
   const url = new URL(window.location.href)
   url.searchParams.delete('code')
-  window.history.replaceState({}, '', url.pathname + url.search + url.hash)
+  const relativeUrl = url.pathname + url.search + url.hash
+  const replaceURL = getConvexAuthClientOptions().replaceURL
+  try {
+    if (replaceURL) {
+      await replaceURL(relativeUrl)
+    } else {
+      window.history.replaceState({}, '', relativeUrl)
+    }
+  } catch (cause) {
+    session.error.value = cause instanceof Error ? cause.message : 'OAuth callback failed'
+    session.isLoading.value = false
+    session.pending.value = false
+    return false
+  }
 
   session.pending.value = true
   session.error.value = null
   // Keep provider loading until tokens land so gated queries stay skipped.
   session.isLoading.value = true
   try {
-    writeLocal(session.verifierKey.value, null)
+    await writeVerifier(session.verifierKey.value, null)
     const result = await callSignInWithRetry(session.convexUrl, {
       params: { code: code! },
       verifier: verifier!,
@@ -381,21 +445,35 @@ function useAuthSession(): AuthSession {
   const config = useRuntimeConfig()
   const convexConfig = config.public.convex as { url?: string; auth?: ConvexAuthConfig } | undefined
   const convexUrl = convexConfig?.url
-  const httpOnly = isHttpOnlyAuth(convexConfig?.auth)
+  const authConfig = convexConfig?.auth
+  const httpOnly = isHttpOnlyAuth(authConfig)
+
+  // Serializable module defaults for storage / OAuth gates (functions via
+  // configureConvexAuth). Idempotent — safe on every useAuthSession call.
+  if (authConfig?.provider === 'convex-auth') {
+    setConvexAuthModuleDefaults({
+      storageNamespace: authConfig.storageNamespace,
+      storage: authConfig.storage,
+      shouldHandleCode: authConfig.shouldHandleCode,
+    })
+  }
 
   const isLoading = useState('convex-auth-loading', () => true)
   const hasSession = useState('convex-auth-has-session', () => false)
   const error = useState<string | null>('convex-auth-error', () => null)
   const pending = useState('convex-auth-pending', () => false)
 
+  const namespace =
+    getConvexAuthClientOptions().storageNamespace ?? authConfig?.storageNamespace ?? convexUrl
+
   const jwtKey = computed(() =>
-    convexUrl ? storageKey(JWT_STORAGE_KEY, convexUrl) : JWT_STORAGE_KEY,
+    namespace ? storageKey(JWT_STORAGE_KEY, namespace) : JWT_STORAGE_KEY,
   )
   const refreshKey = computed(() =>
-    convexUrl ? storageKey(REFRESH_TOKEN_STORAGE_KEY, convexUrl) : REFRESH_TOKEN_STORAGE_KEY,
+    namespace ? storageKey(REFRESH_TOKEN_STORAGE_KEY, namespace) : REFRESH_TOKEN_STORAGE_KEY,
   )
   const verifierKey = computed(() =>
-    convexUrl ? storageKey(VERIFIER_STORAGE_KEY, convexUrl) : VERIFIER_STORAGE_KEY,
+    namespace ? storageKey(VERIFIER_STORAGE_KEY, namespace) : VERIFIER_STORAGE_KEY,
   )
 
   return {
@@ -501,8 +579,8 @@ async function persistTokens(session: AuthSession, tokens: AuthTokens | null): P
     if (tokens === null) {
       await writeHttpOnlySession(null)
       // Also clear any legacy localStorage from before httpOnly was enabled.
-      writeLocal(session.jwtKey.value, null)
-      writeLocal(session.refreshKey.value, null)
+      await writeLocalAsync(session.jwtKey.value, null)
+      await writeLocalAsync(session.refreshKey.value, null)
       session.hasSession.value = false
       session.isLoading.value = false
       return
@@ -514,15 +592,15 @@ async function persistTokens(session: AuthSession, tokens: AuthTokens | null): P
   }
 
   if (tokens === null) {
-    writeLocal(session.jwtKey.value, null)
-    writeLocal(session.refreshKey.value, null)
+    await writeLocalAsync(session.jwtKey.value, null)
+    await writeLocalAsync(session.refreshKey.value, null)
     setJwtCookie(null)
     session.hasSession.value = false
     session.isLoading.value = false
     return
   }
-  writeLocal(session.jwtKey.value, tokens.token)
-  writeLocal(session.refreshKey.value, tokens.refreshToken)
+  await writeLocalAsync(session.jwtKey.value, tokens.token)
+  await writeLocalAsync(session.refreshKey.value, tokens.refreshToken)
   // Flip session BEFORE the cookie so useConvexAuth can call setAuth
   // before any gated page mounts on the cookie signal.
   session.hasSession.value = true

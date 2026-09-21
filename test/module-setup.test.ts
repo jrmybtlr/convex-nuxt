@@ -105,6 +105,7 @@ describe('module setup', () => {
       'useConvexQueries',
       'prewarmQuery',
       'requireConvexAuthMiddleware',
+      'configureConvexAuth',
       '__convex_devtools',
       'convexDevtools',
     ]) {

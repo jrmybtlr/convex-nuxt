@@ -3,6 +3,7 @@ import type { ComputedRef, InjectionKey, Ref } from 'vue'
 import { inject, ref } from 'vue'
 import { useNuxtApp } from 'nuxt/app'
 import { missingConvexUrlError } from './errors'
+import type { CreateHttpClientOptions } from './http'
 
 export interface ConvexAuthContext {
   /**
@@ -42,7 +43,7 @@ export interface ConvexNuxtContext {
    * Create a fresh HttpClient for one-shot fetches (SSR / Nitro / refresh).
    * Prefer a new client per call — HttpClient is stateful.
    */
-  createHttpClient: (options?: { token?: string }) => ConvexHttpClient
+  createHttpClient: (options?: CreateHttpClientOptions) => ConvexHttpClient
 }
 
 export const convexNuxtKey: InjectionKey<ConvexNuxtContext> = Symbol('convex-nuxt')
