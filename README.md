@@ -215,6 +215,7 @@ export default defineNuxtPlugin({
   name: 'convex-auth-options',
   enforce: 'pre',
   setup() {
+    const route = useRoute()
     configureConvexAuth({
       replaceURL: (url) => navigateTo(url, { replace: true }),
       shouldHandleCode: () => route.path === '/auth/callback',

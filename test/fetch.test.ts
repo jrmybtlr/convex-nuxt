@@ -211,9 +211,7 @@ describe('fetchQuery / fetchMutation / fetchAction', () => {
       },
     )
     expect(createHttpClient).toHaveBeenCalledWith('https://example.convex.cloud', {
-      token: undefined,
       adminToken: 'deploy-key',
-      skipConvexDeploymentUrlCheck: undefined,
     })
   })
 })

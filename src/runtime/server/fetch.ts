@@ -69,10 +69,13 @@ export function resolveToken(options: ConvexFetchOptions): string | undefined {
 }
 
 function setupClient(options: ConvexFetchOptions = {}) {
+  const token = options.adminToken ? undefined : resolveToken(options)
   return createHttpClient(resolveUrl(options), {
-    token: options.adminToken ? undefined : resolveToken(options),
-    adminToken: options.adminToken,
-    skipConvexDeploymentUrlCheck: options.skipConvexDeploymentUrlCheck,
+    ...(token ? { token } : {}),
+    ...(options.adminToken ? { adminToken: options.adminToken } : {}),
+    ...(options.skipConvexDeploymentUrlCheck !== undefined
+      ? { skipConvexDeploymentUrlCheck: options.skipConvexDeploymentUrlCheck }
+      : {}),
   })
 }
 
