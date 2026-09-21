@@ -121,8 +121,9 @@ export function useConvexQueries<Request extends ConvexQueriesRequest>(
 
   const sync = (request: Request, isAuthenticated: boolean) => {
     const nextKeys = new Set(Object.keys(request))
+    const known = new Set<string>([...unsubscribers.keys(), ...signatures.keys()])
 
-    for (const key of unsubscribers.keys()) {
+    for (const key of known) {
       if (!nextKeys.has(key)) {
         dropKey(key)
       }
@@ -146,7 +147,9 @@ export function useConvexQueries<Request extends ConvexQueriesRequest>(
         entry.args as Record<string, Value>,
         authSkipped,
       )
-      if (signatures.get(key) === signature && unsubscribers.has(key)) {
+      // Auth-skipped keys have a signature and no subscriber. Treat that as
+      // settled so a deep watch does not tear the entry down every tick.
+      if (signatures.get(key) === signature && (unsubscribers.has(key) || authSkipped)) {
         continue
       }
 

@@ -59,11 +59,13 @@ export default defineNuxtPlugin({
     // OAuth code exchange is async — run after setAuth is wired. Session
     // flags update reactively when tokens land.
     if (pendingOAuth) {
-      void consumeOAuthCodeFromUrl().then((ok) => {
-        if (!ok) {
-          hydrateAuthFromStorage()
-        }
-      })
+      void consumeOAuthCodeFromUrl()
+        .catch(() => false)
+        .then((ok) => {
+          if (!ok) {
+            hydrateAuthFromStorage()
+          }
+        })
     }
   },
 })

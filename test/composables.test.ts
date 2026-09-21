@@ -381,6 +381,37 @@ describe('prewarmQuery / useAuthToken / useConvexQueries', () => {
     expect(onUpdate).toHaveBeenCalledTimes(1)
     expect(onUpdate.mock.calls[0]![0]).toBe(publicQuery)
   })
+
+  it('useConvexQueries keeps an auth skip settled across deep churn', async () => {
+    const onUpdate = vi.fn(() => vi.fn())
+    const client = { onUpdate } as unknown as NonNullable<ConvexNuxtContext['client']>
+    const ctx = makeCtx({ client })
+    vi.doMock('../src/runtime/utils/context', () => ({
+      useConvexContext: () => ctx,
+      tryUseConvexContext: () => ctx,
+    }))
+
+    const { useConvexQueries } = await import('../src/runtime/composables/useConvexQueries')
+    const query = makeFunctionReference<'query', Record<string, never>, string[]>('tasks:list')
+    const request = ref<Record<string, { query: typeof query; args: Record<string, never> }>>({
+      tasks: { query, args: {} },
+      other: { query, args: {} },
+    })
+    useConvexQueries(request, { authenticated: true })
+    expect(onUpdate).not.toHaveBeenCalled()
+
+    request.value = {
+      tasks: { query, args: {} },
+      other: { query, args: {} },
+    }
+    await Promise.resolve()
+    expect(onUpdate).not.toHaveBeenCalled()
+
+    request.value = { tasks: { query, args: {} } }
+    ctx.auth.isAuthenticated.value = true
+    await Promise.resolve()
+    expect(onUpdate).toHaveBeenCalledTimes(1)
+  })
 })
 
 describe('useConvexQuery authenticated option', () => {

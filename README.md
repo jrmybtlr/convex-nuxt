@@ -201,7 +201,7 @@ convex: {
     provider: 'convex-auth',
     // cookie defaults to 'convex_jwt'
     // storageNamespace: 'myapp',       // optional; default = deployment URL
-    // storage: 'localStorage',         // or 'inMemory'
+    // storage: 'localStorage',         // or 'inMemory' (verifier uses a short-lived cookie)
     // shouldHandleCode: true,          // set false to ignore ?code=
   },
 }
@@ -218,12 +218,14 @@ export default defineNuxtPlugin({
     configureConvexAuth({
       replaceURL: (url) => navigateTo(url, { replace: true }),
       shouldHandleCode: () => route.path === '/auth/callback',
-      // storage: window.sessionStorage,
+      // storage: window.sessionStorage, // may be async; signIn waits before redirect
       // storageNamespace: 'myapp',
     })
   },
 })
 ```
+
+`storage: 'inMemory'` keeps JWTs in memory. The OAuth verifier is a short-lived cookie so the `?code=` callback still works after the IdP redirect. Custom storage may return Promises; `signIn` waits for writes before navigating.
 
 ```vue
 <script setup lang="ts">
