@@ -6,6 +6,7 @@ import { useConvexAuth } from './useConvexAuth'
 import { missingConvexUrlError, unreachableConvexUrlError } from '../utils/errors'
 import { withRefreshMutex } from '../utils/authMutex'
 import { useAuthJwtCookie, useAuthPresentCookie } from '../utils/authCookie'
+import { getConvexAuthClientOptions, setConvexAuthModuleDefaults } from '../utils/authClientOptions'
 import {
   flattenSignInParams,
   isHttpOnlyAuth,
@@ -311,7 +312,11 @@ export function hasPendingOAuthCallback(): boolean {
   }
   const code = new URLSearchParams(window.location.search).get('code')
   const verifier = readLocal(session.verifierKey.value)
-  return shouldConsumeOAuthCode({ code, verifier })
+  return shouldConsumeOAuthCode({
+    code,
+    verifier,
+    shouldHandleCode: getConvexAuthClientOptions().shouldHandleCode,
+  })
 }
 
 /** @internal */
@@ -326,13 +331,25 @@ export async function consumeOAuthCodeFromUrl(): Promise<boolean> {
 
   const code = new URLSearchParams(window.location.search).get('code')
   const verifier = readLocal(session.verifierKey.value)
-  if (!shouldConsumeOAuthCode({ code, verifier })) {
+  if (
+    !shouldConsumeOAuthCode({
+      code,
+      verifier,
+      shouldHandleCode: getConvexAuthClientOptions().shouldHandleCode,
+    })
+  ) {
     return false
   }
 
   const url = new URL(window.location.href)
   url.searchParams.delete('code')
-  window.history.replaceState({}, '', url.pathname + url.search + url.hash)
+  const relativeUrl = url.pathname + url.search + url.hash
+  const replaceURL = getConvexAuthClientOptions().replaceURL
+  if (replaceURL) {
+    await replaceURL(relativeUrl)
+  } else {
+    window.history.replaceState({}, '', relativeUrl)
+  }
 
   session.pending.value = true
   session.error.value = null
@@ -381,21 +398,35 @@ function useAuthSession(): AuthSession {
   const config = useRuntimeConfig()
   const convexConfig = config.public.convex as { url?: string; auth?: ConvexAuthConfig } | undefined
   const convexUrl = convexConfig?.url
-  const httpOnly = isHttpOnlyAuth(convexConfig?.auth)
+  const authConfig = convexConfig?.auth
+  const httpOnly = isHttpOnlyAuth(authConfig)
+
+  // Serializable module defaults for storage / OAuth gates (functions via
+  // configureConvexAuth). Idempotent — safe on every useAuthSession call.
+  if (authConfig?.provider === 'convex-auth') {
+    setConvexAuthModuleDefaults({
+      storageNamespace: authConfig.storageNamespace,
+      storage: authConfig.storage,
+      shouldHandleCode: authConfig.shouldHandleCode,
+    })
+  }
 
   const isLoading = useState('convex-auth-loading', () => true)
   const hasSession = useState('convex-auth-has-session', () => false)
   const error = useState<string | null>('convex-auth-error', () => null)
   const pending = useState('convex-auth-pending', () => false)
 
+  const namespace =
+    getConvexAuthClientOptions().storageNamespace ?? authConfig?.storageNamespace ?? convexUrl
+
   const jwtKey = computed(() =>
-    convexUrl ? storageKey(JWT_STORAGE_KEY, convexUrl) : JWT_STORAGE_KEY,
+    namespace ? storageKey(JWT_STORAGE_KEY, namespace) : JWT_STORAGE_KEY,
   )
   const refreshKey = computed(() =>
-    convexUrl ? storageKey(REFRESH_TOKEN_STORAGE_KEY, convexUrl) : REFRESH_TOKEN_STORAGE_KEY,
+    namespace ? storageKey(REFRESH_TOKEN_STORAGE_KEY, namespace) : REFRESH_TOKEN_STORAGE_KEY,
   )
   const verifierKey = computed(() =>
-    convexUrl ? storageKey(VERIFIER_STORAGE_KEY, convexUrl) : VERIFIER_STORAGE_KEY,
+    namespace ? storageKey(VERIFIER_STORAGE_KEY, namespace) : VERIFIER_STORAGE_KEY,
   )
 
   return {

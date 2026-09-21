@@ -16,8 +16,15 @@ export interface ConvexFetchOptions {
   /**
    * JWT for this call. Prefer per-request tokens — never put JWTs in public config.
    * When omitted and `event` is passed, falls back to `convex.auth.cookie` if set.
+   * Ignored when {@link adminToken} is set (admin auth clears user JWT).
    */
   token?: string
+  /**
+   * Deploy / admin key for privileged server tooling (Next.js `fetchQuery`
+   * parity). Calls `ConvexHttpClient.setAdminAuth`. Never put this in public
+   * runtime config — pass per request from a server secret.
+   */
+  adminToken?: string
   /**
    * Nitro/H3 event. Used to resolve runtimeConfig and the optional auth cookie.
    */
@@ -63,7 +70,8 @@ export function resolveToken(options: ConvexFetchOptions): string | undefined {
 
 function setupClient(options: ConvexFetchOptions = {}) {
   return createHttpClient(resolveUrl(options), {
-    token: resolveToken(options),
+    token: options.adminToken ? undefined : resolveToken(options),
+    adminToken: options.adminToken,
     skipConvexDeploymentUrlCheck: options.skipConvexDeploymentUrlCheck,
   })
 }

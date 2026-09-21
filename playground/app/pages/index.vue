@@ -24,14 +24,17 @@ const composables = [
   {
     name: 'useConvexQueries',
     kind: 'query',
-    flags: 'batch skip browser',
+    flags: 'batch skip authenticated browser',
     example: `// Browser-only live map (no SSR). Values: data | undefined | Error
-const results = useConvexQueries(() => ({
-  tasks: { query: api.tasks.list, args: {} },
-  files: showFiles.value
-    ? { query: api.files.list, args: {} }
-    : 'skip',
-}))
+const results = useConvexQueries(
+  () => ({
+    tasks: { query: api.tasks.list, args: {} },
+    files: showFiles.value
+      ? { query: api.files.list, args: {} }
+      : 'skip',
+  }),
+  { authenticated: true },
+)
 // results.value.tasks`,
   },
   {

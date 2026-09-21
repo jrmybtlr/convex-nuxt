@@ -2,6 +2,13 @@
  * Convex Auth client storage helpers (mirrors @convex-dev/auth/react).
  */
 
+import {
+  getConvexAuthClientOptions,
+  resolveAuthTokenStorage,
+  type ConvexAuthStorageMode,
+  type ConvexAuthTokenStorage,
+} from './authClientOptions'
+
 export const JWT_STORAGE_KEY = '__convexAuthJWT'
 export const REFRESH_TOKEN_STORAGE_KEY = '__convexAuthRefreshToken'
 export const VERIFIER_STORAGE_KEY = '__convexAuthOAuthVerifier'
@@ -28,14 +35,32 @@ export type ConvexAuthConfig = {
   httpOnly?: boolean
   /** Readable presence cookie when `httpOnly` is set (UI only). */
   presentCookie?: string
+  /**
+   * Namespace for local token keys (React `storageNamespace` parity).
+   * Non-alphanumeric characters are stripped. Defaults to the deployment URL.
+   */
+  storageNamespace?: string
+  /**
+   * Client token storage mode. Use {@link configureConvexAuth} for a custom
+   * {@link ConvexAuthTokenStorage}. Ignored when `httpOnly` is enabled.
+   * @default 'localStorage'
+   */
+  storage?: ConvexAuthStorageMode
+  /**
+   * When `false`, do not consume `?code=` OAuth callbacks. For a function
+   * gate, call {@link configureConvexAuth} with `shouldHandleCode`.
+   */
+  shouldHandleCode?: boolean
 }
 
-export function storageNamespace(url: string): string {
-  return url.replace(/[^a-z0-9]/gi, '')
+export type { ConvexAuthTokenStorage, ConvexAuthStorageMode }
+
+export function storageNamespace(urlOrNamespace: string): string {
+  return urlOrNamespace.replace(/[^a-z0-9]/gi, '')
 }
 
-export function storageKey(base: string, url: string): string {
-  return `${base}_${storageNamespace(url)}`
+export function storageKey(base: string, urlOrNamespace: string): string {
+  return `${base}_${storageNamespace(urlOrNamespace)}`
 }
 
 /**
@@ -101,39 +126,62 @@ export function cookieValueToSsrToken(value: string | null | undefined): string 
   return value || undefined
 }
 
+function activeStorage(): ConvexAuthTokenStorage {
+  return resolveAuthTokenStorage(getConvexAuthClientOptions())
+}
+
 export function readLocal(key: string): string | null {
-  if (typeof window === 'undefined') {
+  const value = activeStorage().getItem(key)
+  if (value instanceof Promise) {
+    // Sync callers (hydrate, verifier peek) only support sync storage.
+    // Async TokenStorage must be read via {@link readLocalAsync}.
     return null
   }
-  try {
-    return window.localStorage.getItem(key)
-  } catch {
-    return null
-  }
+  return value ?? null
+}
+
+export async function readLocalAsync(key: string): Promise<string | null> {
+  const value = await activeStorage().getItem(key)
+  return value ?? null
 }
 
 export function writeLocal(key: string, value: string | null): void {
-  if (typeof window === 'undefined') {
-    return
+  const storage = activeStorage()
+  if (value === null) {
+    void storage.removeItem(key)
+  } else {
+    void storage.setItem(key, value)
   }
-  try {
-    if (value === null) {
-      window.localStorage.removeItem(key)
-    } else {
-      window.localStorage.setItem(key, value)
-    }
-  } catch {
-    // ignore quota / private mode
+}
+
+export async function writeLocalAsync(key: string, value: string | null): Promise<void> {
+  const storage = activeStorage()
+  if (value === null) {
+    await storage.removeItem(key)
+  } else {
+    await storage.setItem(key, value)
   }
 }
 
 /**
  * Whether the current URL's `?code=` should be treated as an OAuth callback.
- * Only true when we previously stored a verifier (we started the flow).
+ * Requires a stored verifier (we started the flow). Honors
+ * `shouldHandleCode` from module options / {@link configureConvexAuth}.
  */
 export function shouldConsumeOAuthCode(options: {
   code: string | null
   verifier: string | null
+  shouldHandleCode?: boolean | (() => boolean)
 }): boolean {
-  return options.code !== null && options.verifier !== null
+  if (options.code === null || options.verifier === null) {
+    return false
+  }
+  const gate = options.shouldHandleCode ?? getConvexAuthClientOptions().shouldHandleCode
+  if (gate === undefined) {
+    return true
+  }
+  if (typeof gate === 'function') {
+    return gate()
+  }
+  return gate
 }

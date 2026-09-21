@@ -7,7 +7,9 @@ import {
   hydrateAuthFromStorage,
   useAuthProviderState,
 } from './composables/useAuth'
+import { setConvexAuthModuleDefaults } from './utils/authClientOptions'
 import { tryUseConvexContext } from './utils/context'
+import type { ConvexAuthConfig } from './utils/authStorage'
 
 /**
  * First-party Convex Auth wiring (opt-in via `convex.auth.provider: 'convex-auth'`).
@@ -20,7 +22,9 @@ export default defineNuxtPlugin({
   dependsOn: ['convex-nuxt-client'],
   setup() {
     const config = useRuntimeConfig()
-    const convexConfig = config.public.convex as { url?: string } | undefined
+    const convexConfig = config.public.convex as
+      | { url?: string; auth?: ConvexAuthConfig }
+      | undefined
     if (!convexConfig?.url) {
       return
     }
@@ -28,6 +32,15 @@ export default defineNuxtPlugin({
     // Client plugin no-ops when URL is empty; don't throw during HMR races.
     if (!tryUseConvexContext()) {
       return
+    }
+
+    const auth = convexConfig.auth
+    if (auth?.provider === 'convex-auth') {
+      setConvexAuthModuleDefaults({
+        storageNamespace: auth.storageNamespace,
+        storage: auth.storage,
+        shouldHandleCode: auth.shouldHandleCode,
+      })
     }
 
     const pendingOAuth = hasPendingOAuthCallback()

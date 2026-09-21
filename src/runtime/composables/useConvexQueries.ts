@@ -11,6 +11,7 @@ import {
   type ComputedRef,
   type MaybeRefOrGetter,
 } from 'vue'
+import { resolveAuthGatedArgs } from '../utils/authGate'
 import { useConvexContext } from '../utils/context'
 import type { ConvexRef } from '../utils/functionReference'
 
@@ -18,11 +19,17 @@ import type { ConvexRef } from '../utils/functionReference'
 export type ConvexQueryRequestEntry<Query extends ConvexRef<'query'> = ConvexRef<'query'>> = {
   query: Query
   args: FunctionArgs<Query>
+  /**
+   * Skip this entry until Convex confirms auth (`isAuthenticated`).
+   * Overrides the top-level {@link UseConvexQueriesOptions.authenticated}
+   * flag when set.
+   */
+  authenticated?: boolean
 }
 
 /**
  * Request map for {@link useConvexQueries}.
- * Values are `{ query, args }` or `'skip'`.
+ * Values are `{ query, args, authenticated? }` or `'skip'`.
  */
 export type ConvexQueriesRequest = Record<string, ConvexQueryRequestEntry | 'skip'>
 
@@ -37,28 +44,62 @@ export type ConvexQueriesResult<Request extends ConvexQueriesRequest> = {
     : undefined
 }
 
-function subscriptionSignature(query: ConvexRef<'query'>, args: Record<string, Value>): string {
-  return `${getFunctionName(query)}:${JSON.stringify(convexToJson(args))}`
+export interface UseConvexQueriesOptions {
+  /**
+   * Skip every entry until Convex confirms auth (`isAuthenticated`).
+   * Prefer this over wrapping each value in `'skip'`. Per-entry
+   * `authenticated` overrides this when set.
+   *
+   * @default false
+   */
+  authenticated?: boolean
+}
+
+function subscriptionSignature(
+  query: ConvexRef<'query'>,
+  args: Record<string, Value>,
+  authSkipped: boolean,
+): string {
+  return `${getFunctionName(query)}:${JSON.stringify(convexToJson(args))}:authSkip=${authSkipped}`
+}
+
+function entryRequiresAuth(entry: ConvexQueryRequestEntry, defaultAuthenticated: boolean): boolean {
+  return entry.authenticated ?? defaultAuthenticated
 }
 
 /**
  * Subscribe to a dynamic map of Convex queries (React `useQueries` parity).
  *
- * Pass a reactive object whose values are `{ query, args }` or `'skip'`.
- * Returns a computed map of the same keys → result | `undefined` (loading) |
- * `Error`.
+ * Pass a reactive object whose values are `{ query, args, authenticated? }`
+ * or `'skip'`. Returns a computed map of the same keys → result |
+ * `undefined` (loading) | `Error`.
  *
  * Browser-only live subscriptions. During SSR every entry is `undefined`
  * (combine with `useConvexQuery` when you need SSR for known queries).
  *
- * Unchanged keys (same function name + args) keep their existing subscription
- * so deep reactive churn does not tear down WebSocket watches.
+ * Unchanged keys (same function name + args + auth-skip) keep their
+ * existing subscription so deep reactive churn does not tear down
+ * WebSocket watches.
+ *
+ * @example
+ * ```ts
+ * // Gate the whole map until Convex confirms auth
+ * const results = useConvexQueries(
+ *   () => ({
+ *     tasks: { query: api.tasks.list, args: {} },
+ *     files: showFiles.value ? { query: api.files.list, args: {} } : 'skip',
+ *   }),
+ *   { authenticated: true },
+ * )
+ * ```
  */
 export function useConvexQueries<Request extends ConvexQueriesRequest>(
   queries: MaybeRefOrGetter<Request>,
+  options: UseConvexQueriesOptions = {},
 ): ComputedRef<ConvexQueriesResult<Request>> {
   const ctx = useConvexContext()
   const results = shallowRef<Record<string, unknown>>({})
+  const defaultAuthenticated = options.authenticated ?? false
 
   if (import.meta.server || !ctx.client) {
     return computed(() => results.value as ConvexQueriesResult<Request>)
@@ -78,7 +119,7 @@ export function useConvexQueries<Request extends ConvexQueriesRequest>(
     }
   }
 
-  const sync = (request: Request) => {
+  const sync = (request: Request, isAuthenticated: boolean) => {
     const nextKeys = new Set(Object.keys(request))
 
     for (const key of unsubscribers.keys()) {
@@ -93,17 +134,37 @@ export function useConvexQueries<Request extends ConvexQueriesRequest>(
         continue
       }
 
-      const { query, args } = entry
-      const signature = subscriptionSignature(query, args as Record<string, Value>)
+      const requireAuth = entryRequiresAuth(entry, defaultAuthenticated)
+      const effectiveArgs = resolveAuthGatedArgs(entry.args, {
+        authenticated: requireAuth,
+        isAuthenticated,
+      })
+      const authSkipped = effectiveArgs === 'skip'
+
+      const signature = subscriptionSignature(
+        entry.query,
+        entry.args as Record<string, Value>,
+        authSkipped,
+      )
       if (signatures.get(key) === signature && unsubscribers.has(key)) {
         continue
       }
 
       unsubscribers.get(key)?.()
+      unsubscribers.delete(key)
+
+      if (authSkipped) {
+        signatures.set(key, signature)
+        if (key in results.value) {
+          const { [key]: _, ...rest } = results.value
+          results.value = rest
+        }
+        continue
+      }
 
       const unsubscribe = client.onUpdate(
-        query,
-        args as FunctionArgs<typeof query>,
+        entry.query,
+        effectiveArgs as FunctionArgs<typeof entry.query>,
         (value) => {
           results.value = { ...results.value, [key]: value }
         },
@@ -122,9 +183,9 @@ export function useConvexQueries<Request extends ConvexQueriesRequest>(
   }
 
   watch(
-    () => toValue(queries),
-    (request) => {
-      sync(request)
+    () => [toValue(queries), ctx.auth.isAuthenticated.value] as const,
+    ([request, isAuthenticated]) => {
+      sync(request, isAuthenticated)
     },
     { immediate: true, deep: true },
   )

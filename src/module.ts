@@ -59,6 +59,24 @@ export interface ModuleAuthOptions {
    * @default 'convex_auth_present'
    */
   presentCookie?: string
+  /**
+   * Namespace for local token keys (React `storageNamespace` parity).
+   * Non-alphanumeric characters are stripped. Defaults to the deployment URL.
+   */
+  storageNamespace?: string
+  /**
+   * Client token storage. `'localStorage'` (default) or `'inMemory'`.
+   * For a custom TokenStorage or `replaceURL` / function `shouldHandleCode`,
+   * call `configureConvexAuth` from a client plugin with `enforce: 'pre'`.
+   * Ignored when `httpOnly` is enabled.
+   * @default 'localStorage'
+   */
+  storage?: 'localStorage' | 'inMemory'
+  /**
+   * When `false`, do not consume `?code=` OAuth callbacks.
+   * For a function gate, use `configureConvexAuth({ shouldHandleCode })`.
+   */
+  shouldHandleCode?: boolean
 }
 
 export interface ModuleOptions {
@@ -132,12 +150,19 @@ export type {
   ConvexQueryRequestEntry,
   ConvexQueriesRequest,
   ConvexQueriesResult,
+  UseConvexQueriesOptions,
 } from './runtime/composables/useConvexQueries'
 export type { ConvexFetchOptions } from './runtime/server/fetch'
 export type { ConvexRef } from './runtime/utils/functionReference'
 export type { ConvexNuxtContext, ConvexAuthContext } from './runtime/utils/context'
 export type { ConnectionState } from './runtime/composables/useConvexConnectionState'
 export type { ConvexGate } from './runtime/composables/useConvexGate'
+export type {
+  ConvexAuthClientOptions,
+  ConvexAuthTokenStorage,
+  ConvexAuthStorageMode,
+} from './runtime/utils/authClientOptions'
+export { configureConvexAuth } from './runtime/utils/authClientOptions'
 
 export default defineNuxtModule<ModuleOptions>({
   meta: {
@@ -355,6 +380,10 @@ export default defineNuxtModule<ModuleOptions>({
             {
               name: 'signOut',
               from: resolver.resolve('./runtime/composables/useAuth'),
+            },
+            {
+              name: 'configureConvexAuth',
+              from: resolver.resolve('./runtime/utils/authClientOptions'),
             },
           ]
         : []),
