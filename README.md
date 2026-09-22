@@ -133,6 +133,12 @@ const { run, pending, error } = useConvexAction(api.tasks.shout)
 const shouted = await run({ text: 'hello' }) // browser-only
 ```
 
+`useConvexAction` calls `ConvexClient.action`. Actions from one client run in parallel with each other and with mutations. If a later call depends on an earlier one, await the earlier call before starting the next.
+
+A failed action stays failed: Convex leaves retry to the caller, because the action may already have performed a side effect. `run` throws and sets `error`. Retry from your code when repeating the action is safe.
+
+Use `useConvexAction` (and `fetchAction`) for work the user is waiting on. For durable work, write the user's intent in a mutation and schedule an `internalAction` from that mutation.
+
 For paginated lists:
 
 ```ts
@@ -351,6 +357,8 @@ export default defineEventHandler(async (event) => {
 
 `fetchAction` uses the same options. Each helper builds a fresh `ConvexHttpClient`. Override with `{ token }` when you already have a JWT. Pass `{ adminToken }` (deploy key / admin key) for privileged server tooling — same as Next.js `fetchQuery` (user `token` is ignored when `adminToken` is set). `getConvexToken(event)` reads the cookie without throwing.
 
+`fetchAction` throws on failure. Convex leaves retry to the caller, because the action may already have performed a side effect. Retry in the route when repeating the action is safe. Use `fetchAction` for work the request is waiting on. For durable work, write the intent in a mutation and schedule an `internalAction` from that mutation. Browser actions run in parallel with each other and with mutations; see [Mutations and actions](#mutations-and-actions).
+
 ## Config
 
 ```ts
@@ -408,7 +416,7 @@ pnpm run dev
 | `/files`  | `useConvexFileUpload` (upload, list, preview, delete) |
 | `/extras` | `live: false`, pagination, action, connection state   |
 
-On `/server`: `GET /api/health` is public; `GET`/`POST /api/tasks` use the cookie JWT; `POST /api/shout` is a public `fetchAction` demo.
+On `/server`: `GET /api/health` is public; `GET`/`POST /api/tasks` and `POST /api/shout` use the cookie JWT. `POST /api/shout` is an authenticated `fetchAction` demo.
 
 ## Releasing
 
