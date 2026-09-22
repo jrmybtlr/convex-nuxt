@@ -152,6 +152,56 @@ describe('useConvexMutation / useConvexAction / useConvex', () => {
     expect(error.value).toBeNull()
   })
 
+  it('wraps action errors and rethrows', async () => {
+    const ctx = makeCtx()
+    clientMocks(ctx.client).action = vi.fn().mockRejectedValue(new Error('boom'))
+
+    vi.doMock('../src/runtime/utils/context', () => ({
+      useConvexContext: () => ctx,
+    }))
+
+    const { useConvexAction } = await import('../src/runtime/composables/useConvexAction')
+    const { run, error } = useConvexAction(actionFn)
+    await expect(run({ n: 1 })).rejects.toThrow('boom')
+    expect(error.value?.message).toBe('boom')
+  })
+
+  it('tracks overlapping action pending counts', async () => {
+    const ctx = makeCtx()
+    let release!: () => void
+    const gate = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    clientMocks(ctx.client).action = vi.fn().mockImplementation(async () => {
+      await gate
+      return 1
+    })
+
+    vi.doMock('../src/runtime/utils/context', () => ({
+      useConvexContext: () => ctx,
+    }))
+
+    const { useConvexAction } = await import('../src/runtime/composables/useConvexAction')
+    const { run, pending } = useConvexAction(actionFn)
+    const first = run({ n: 1 })
+    const second = run({ n: 2 })
+    expect(pending.value).toBe(true)
+    release()
+    await Promise.all([first, second])
+    expect(pending.value).toBe(false)
+  })
+
+  it('throws when an action runs without a client', async () => {
+    const ctx = makeCtx({ client: null })
+    vi.doMock('../src/runtime/utils/context', () => ({
+      useConvexContext: () => ctx,
+    }))
+
+    const { useConvexAction } = await import('../src/runtime/composables/useConvexAction')
+    const { run } = useConvexAction(actionFn)
+    await expect(run({ n: 1 })).rejects.toThrow(/browser/)
+  })
+
   it('returns the browser client from useConvex', async () => {
     const client = { mutation: vi.fn() } as unknown as NonNullable<ConvexNuxtContext['client']>
     const ctx = makeCtx({ client })
