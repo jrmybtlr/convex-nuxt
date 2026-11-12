@@ -156,7 +156,10 @@ export async function useConvexPaginatedQuery<Query extends PaginatedQueryRefere
       server,
       watch: [
         () => toValue(args),
-        () => options.token ?? ctx.ssrToken.value,
+        // Session presence, not the token value: Convex Auth rotates the
+        // access token every minute, and the live subscription already
+        // covers updates while signed in. An explicit `token` still re-runs.
+        () => options.token ?? !!ctx.ssrToken.value,
         () =>
           requireAuth && ctx.auth.isAuthenticated.value && !!(options.token ?? ctx.ssrToken.value),
       ],

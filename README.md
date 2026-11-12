@@ -75,7 +75,7 @@ Args accept the query's `FunctionArgs`, `'skip'`, or a `MaybeRefOrGetter` of eit
 
 - **`'skip'`** — gate on missing ids, feature flags, etc. Keeps the same payload key as empty args so SSR HTML survives.
 - **`authenticated: true`** — skip live subscribe until Convex confirms auth. SSR still snapshots when the JWT cookie is present. Prefer this over wrapping args yourself.
-- **`token`** — authenticated SSR for this call only. Never put JWTs in `runtimeConfig.public`. When `convex.auth.cookie` / HttpOnly auth is set, queries fall back to that cookie.
+- **`token`** — authenticated SSR for this call only. Never put JWTs in `runtimeConfig.public`. Otherwise queries use the session token (Convex Auth SSR mode, or a BYO `convex.auth.cookie`).
 
 Warm a subscription before a screen mounts:
 
@@ -196,54 +196,64 @@ That runs `generateUploadUrl` → `PUT` to the signed URL → `syncMetadata({ ke
 
 ## Auth
 
-### Convex Auth
+### Convex Auth (v2)
 
-Opt in with `provider: 'convex-auth'`. The module hydrates tokens, finishes OAuth `?code=` callbacks, and wires `setAuth`. Forms only call `signIn` / `signOut`.
+First-party support for [Convex Auth v2](https://docs.convex.dev/auth/convex-auth/) (`@convex-dev/auth@^2`), built on its framework-agnostic `AuthClient` (`@convex-dev/auth/browser`) and SSR handlers (`@convex-dev/auth/ssr`). Requires `convex@^1.48`.
+
+```bash
+npm i @convex-dev/auth
+```
 
 ```ts
 convex: {
   url: process.env.NUXT_PUBLIC_CONVEX_URL,
   auth: {
     provider: 'convex-auth',
-    // cookie defaults to 'convex_jwt'
-    // storageNamespace: 'myapp',       // optional; default = deployment URL
-    // storage: 'localStorage',         // or 'inMemory' (verifier uses a short-lived cookie)
-    // shouldHandleCode: true,          // set false to ignore ?code=
+    // Every Convex function that can issue a session. The SSR auth proxy refuses the rest.
+    signIn: ['auth:signInWithUsernamePassword', 'auth:signUpWithUsernamePassword'],
+    // mode: 'ssr',                       // default; or 'spa'
+    // api: { refreshSession, signOut, isAuthenticated }, // default 'auth:<name>'
+    // routePrefix: '/api/convex/auth',
+    // cookieOptions: { secure, domain, path },
+    // allowedOrigins: ['https://app.example.com'],
+    // storage: 'localStorage',           // or 'inMemory'
+    // storageNamespace: 'myapp',         // default = deployment URL
+    // verbose: false,
   },
 }
 ```
 
-For non-default OAuth / callback flows (JS router `replaceURL`, function `shouldHandleCode`, custom `TokenStorage`), call `configureConvexAuth` from a client plugin that runs before the auth plugin:
+**Session models**
 
-```ts
-// plugins/convex-auth-options.client.ts
-export default defineNuxtPlugin({
-  name: 'convex-auth-options',
-  enforce: 'pre',
-  setup() {
-    const route = useRoute()
-    configureConvexAuth({
-      replaceURL: (url) => navigateTo(url, { replace: true }),
-      shouldHandleCode: () => route.path === '/auth/callback',
-      // storage: window.sessionStorage, // may be async; signIn waits before redirect
-      // storageNamespace: 'myapp',
-    })
-  },
-})
-```
+| `mode`          | Refresh token                      | Sign-in calls                       | SSR                                                 |
+| --------------- | ---------------------------------- | ----------------------------------- | --------------------------------------------------- |
+| `ssr` (default) | httpOnly cookie, set by Nitro      | `POST <prefix>/signin` (auth proxy) | Authenticated; access token refreshed by middleware |
+| `spa`           | `localStorage` (or custom storage) | Straight to Convex                  | Signed out until the client restores                |
 
-`storage: 'inMemory'` keeps JWTs in memory. The OAuth verifier is a short-lived cookie so the `?code=` callback still works after the IdP redirect. Custom storage may return Promises; `signIn` waits for writes before navigating.
+In SSR mode the module mounts `<prefix>/signin`, `<prefix>/refresh` and `<prefix>/signout` (Convex Auth's `setupConvexAuthServer` handlers, with their CSRF origin check) and a Nitro middleware. Access tokens live 60 seconds, so the middleware refreshes an expiring token from the refresh cookie before SSR queries run, rotates both cookies, and hands the fresh token to the client payload. `signIn`, `allowedOrigins` and `cookieOptions` are server-only (`runtimeConfig.convexAuth`).
+
+**Sign in.** Each v2 method exports its own typed functions. `useConvexSignIn` runs any of them through the right transport and adopts the session it returns:
 
 ```vue
 <script setup lang="ts">
-const { signIn, signOut } = useAuth()
+import { api } from '~~/convex/_generated/api'
+
+const { run: signIn, pending } = useConvexSignIn(api.auth.signInWithUsernamePassword)
+const { signOut, showAuthedUi } = useAuth()
+
+async function submit() {
+  const result = await signIn({ username, password })
+  if (result.status === 'error') {
+    // result.userError.error: 'INVALID_CREDENTIALS' | 'RATE_LIMITED' | … | 'OTHER_ERROR'
+  }
+}
 </script>
 
 <template>
   <AuthLoading>Resolving…</AuthLoading>
   <AuthRefreshing>Refreshing session…</AuthRefreshing>
   <Authenticated>
-    <!-- signed-in shell -->
+    <button @click="signOut()">Sign out</button>
   </Authenticated>
   <Unauthenticated>
     <!-- sign-in form -->
@@ -251,32 +261,56 @@ const { signIn, signOut } = useAuth()
 </template>
 ```
 
-Prefer `<Authenticated>` (or `showAuthedUi`) so SSR HTML does not flash the sign-in form. Gate private queries with `{ authenticated: true }`. `<AuthRefreshing>` shows only while an authenticated session is refreshing a rejected token (same as React).
+Pass `{ kind: 'action' }` when a sign-in function is an action (function kinds are type-only).
+
+**OAuth** (GitHub, Google, Apple). Starting a flow navigates to the provider. The callback (`?convexAuthCode=`) is finished on whichever page it lands, and the params are stripped from the URL and from `vue-router`:
 
 ```ts
-await signIn('password', { email, password, flow: 'signIn' })
-await signIn('github') // OAuth redirect; the plugin finishes on ?code=
-await signOut()
+const { signIn } = useOAuthSignIn({
+  providerName: 'github',
+  startSignIn: api.auth.startSignInWithGithub,
+  completeSignIn: api.auth.completeSignInWithGithub, // list it in `signIn` for SSR mode
+})
+await signIn() // or signIn({ redirectTo: '/after-login' })
+
+const { flowError } = useOAuth() // ACCESS_DENIED | EXPIRED | INVALID_FLOW | OTHER_ERROR
 ```
 
-You still own the Convex backend:
+`useAuth()` returns `isLoading`, `isAuthenticated`, `isRefreshing`, `hasSsrSession`, `showAuthedUi`, `token`, `setSession(bundle)` and `signOut()`. While signed in, the client subscribes to your `isAuthenticated` query, so a session revoked on the server signs the browser out right away.
 
-- `convex/auth.ts` — `convexAuth({ providers })` exporting `auth`, `signIn`, `signOut`
-- `convex/schema.ts` — spread `authTables`
-- `convex/http.ts` — `auth.addHttpRoutes(http)` (required for OAuth / magic links)
-- `convex/auth.config.ts` — JWT issuer (`CONVEX_SITE_URL`)
-- Env: `JWT_PRIVATE_KEY` + `JWKS` (`npx @convex-dev/auth`), plus `SITE_URL` for OAuth
+Prefer `<Authenticated>` (or `showAuthedUi`) so SSR HTML does not flash the sign-in form. Gate private queries with `{ authenticated: true }`.
 
-By default the JWT is a readable cookie (`convex_jwt`) and the refresh token lives in `localStorage`. For production Convex Auth apps, prefer HttpOnly dual cookies:
+For a custom `TokenStorage`, extra ambient sign-ins, or a custom `replaceUrl`, call `configureConvexAuth` from a client plugin that runs first:
 
 ```ts
-auth: {
-  provider: 'convex-auth',
-  httpOnly: true, // JWT + refresh via Nitro `/api/convex/auth/session`
-}
+// plugins/convex-auth-options.client.ts
+export default defineNuxtPlugin({
+  name: 'convex-auth-options',
+  enforce: 'pre',
+  setup() {
+    configureConvexAuth({
+      storage: { getItem, setItem, removeItem }, // may be async
+      // ambientSignIns: [convexOAuth()],       // [] disables OAuth callback handling
+    })
+  },
+})
 ```
 
-A readable `convex_auth_present` marker drives `hasSsrSession` / `showAuthedUi` (UI shell only — **not** authorization). Always gate private live queries with `{ authenticated: true }` (or equivalent). Tokens are HttpOnly cookies; the session API returns the JWT only via same-origin `POST { getToken: true }` for `ConvexClient.setAuth`. That mitigates cookie theft, **not** XSS (any XSS that can call your origin can still obtain a token once the client needs it in memory).
+You own the Convex backend (see the [v2 docs](https://docs.convex.dev/auth/convex-auth/) and `playground/convex`):
+
+- `convex/convex.config.ts`: `app.use(auth)` plus each method's components (e.g. `authPassword`, `authUsername`)
+- `convex/auth.config.ts`: `providers: [convexAuthProvider()]`
+- `convex/auth.ts`: `setupConvexAuth({ component: components.auth })` exporting `signOut`, `refreshSession`, `isAuthenticated`, plus each method's sign-in functions
+- Your own `users` table and a `createUser` callback. No `authTables`, `JWT_PRIVATE_KEY` or `JWKS`.
+
+#### Migrating from v1 (`use-convex` 0.x)
+
+- Backend: follow Convex's [v1 → v2 guide](https://docs.convex.dev/auth/convex-auth/migrating/from-convex-auth-v1).
+- `signIn(provider, params)` is gone. Use `useConvexSignIn(api.auth.<fn>)` or `useOAuthSignIn(refs)`.
+- `useAuth()` no longer returns `signIn`, `pending` or `error`. Sign-in results come back as `{ status, userError }`.
+- Options removed: `httpOnly`, `presentCookie`, `shouldHandleCode` (and `configureConvexAuth({ replaceURL, shouldHandleCode, storageNamespace })`). SSR mode is the default and keeps the refresh token in an httpOnly cookie. `replaceURL` is now `replaceUrl`.
+- `cookie` applies only to bring-your-own providers. Convex Auth uses `__convexAuthJWT` / `__convexAuthRefreshToken`.
+- `/api/convex/auth/session` is replaced by `<prefix>/signin|refresh|signout`. List every session-issuing function in `convex.auth.signIn`.
 
 ### SSR query budget
 
@@ -327,7 +361,7 @@ auth: {
 
 ## Server routes
 
-Nitro helpers are auto-imported in `server/`. Pass the H3 `event` so they resolve the deployment URL and, when a cookie is configured, the JWT:
+Nitro helpers are auto-imported in `server/`. Pass the H3 `event` so they resolve the deployment URL and the session JWT (Convex Auth SSR mode or a BYO cookie):
 
 ```ts
 // server/api/tasks.get.ts
@@ -367,13 +401,17 @@ convex: {
   server: true, // SSR snapshots; override per query with { server }
   client: { unsavedChangesWarning: false }, // forwarded to new ConvexClient()
   auth: {
-    provider: 'convex-auth',
-    cookie: 'convex_jwt',
-    httpOnly: false,
-    presentCookie: 'convex_auth_present',
-    storage: 'localStorage', // or 'inMemory'
+    provider: 'convex-auth', // omit for BYO providers
+    mode: 'ssr', // or 'spa'
+    signIn: ['auth:signInWithUsernamePassword'], // SSR auth proxy allowlist (server-only)
+    // api: { refreshSession: 'auth:refreshSession', signOut: 'auth:signOut', isAuthenticated: 'auth:isAuthenticated' },
+    // routePrefix: '/api/convex/auth',
+    // cookieOptions: { secure: true, domain: undefined, path: '/' },
+    // allowedOrigins: [],
+    // storage: 'localStorage', // or 'inMemory'
     // storageNamespace: 'myapp',
-    // shouldHandleCode: true,
+    // verbose: false,
+    // cookie: 'convex_jwt', // BYO providers only
   },
 }
 ```
@@ -402,21 +440,20 @@ pnpm install
 
 # Terminal 1 — Convex backend (writes CONVEX_URL to playground/.env.local)
 pnpm run dev:backend
-# first time: npx @convex-dev/auth   # JWT_PRIVATE_KEY + JWKS
 
 # Terminal 2 — Nuxt
 pnpm run dev
 ```
 
-| Route     | What it shows                                         |
-| --------- | ----------------------------------------------------- |
-| `/`       | Shell session: features + composable call-shape demos |
-| `/live`   | SSR snapshot + live overlay (sign up, CRUD todos)     |
-| `/server` | Nitro `fetchQuery` / `fetchMutation` / `fetchAction`  |
-| `/files`  | `useConvexFileUpload` (upload, list, preview, delete) |
-| `/extras` | `live: false`, pagination, action, connection state   |
+| Route     | What it shows                                                         |
+| --------- | --------------------------------------------------------------------- |
+| `/`       | Shell session: features + composable call-shape demos                 |
+| `/live`   | SSR snapshot + live overlay (username + password sign up, CRUD todos) |
+| `/server` | Nitro `fetchQuery` / `fetchMutation` / `fetchAction`                  |
+| `/files`  | `useConvexFileUpload` (upload, list, preview, delete)                 |
+| `/extras` | `live: false`, pagination, action, connection state                   |
 
-On `/server`: `GET /api/health` is public; `GET`/`POST /api/tasks` and `POST /api/shout` use the cookie JWT. `POST /api/shout` is an authenticated `fetchAction` demo.
+On `/server`: `GET /api/health` is public; `GET`/`POST /api/tasks` and `POST /api/shout` use the session JWT (refreshed by the Convex Auth middleware). `POST /api/shout` is an authenticated `fetchAction` demo.
 
 ## Releasing
 

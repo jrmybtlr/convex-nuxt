@@ -117,8 +117,28 @@ describe('fetch resolveUrl / resolveToken', () => {
     ).toBe('explicit')
   })
 
-  it('reads the auth cookie when event is passed', async () => {
+  it('reads the BYO auth cookie when event is passed', async () => {
     const { getCookie } = await import('h3')
+    const { useRuntimeConfig } = await import('nitropack/runtime')
+    vi.mocked(useRuntimeConfig).mockReturnValue(
+      mockRuntimeConfig({
+        public: {
+          convex: {
+            url: 'https://example.convex.cloud',
+            auth: { cookie: 'convex_jwt' },
+          },
+        },
+      }),
+    )
+    vi.mocked(getCookie).mockReturnValue('from-cookie')
+
+    const { resolveToken } = await import('../src/runtime/server/fetch')
+    const event = { context: {} } as unknown as H3Event
+    expect(resolveToken({ event })).toBe('from-cookie')
+    expect(getCookie).toHaveBeenCalledWith(event, 'convex_jwt')
+  })
+
+  it('uses the refreshed Convex Auth session token when event is passed', async () => {
     const { useRuntimeConfig } = await import('nitropack/runtime')
     vi.mocked(useRuntimeConfig).mockReturnValue(
       mockRuntimeConfig({
@@ -130,11 +150,10 @@ describe('fetch resolveUrl / resolveToken', () => {
         },
       }),
     )
-    vi.mocked(getCookie).mockReturnValue('from-cookie')
 
     const { resolveToken } = await import('../src/runtime/server/fetch')
-    expect(resolveToken({ event: {} as H3Event })).toBe('from-cookie')
-    expect(getCookie).toHaveBeenCalledWith({}, 'convex_jwt')
+    const event = { context: { convexAuthToken: 'refreshed' } } as unknown as H3Event
+    expect(resolveToken({ event })).toBe('refreshed')
   })
 
   it('treats an empty explicit token as undefined', async () => {

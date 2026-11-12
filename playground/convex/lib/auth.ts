@@ -1,11 +1,12 @@
 import { getAuthUserId } from '@convex-dev/auth/server'
+import { components } from '../_generated/api'
 import type { Doc, Id } from '../_generated/dataModel'
 import type { MutationCtx, QueryCtx } from '../_generated/server'
 
 type AuthCtx = QueryCtx | MutationCtx
 
 export async function getCurrentUserId(ctx: AuthCtx): Promise<Id<'users'>> {
-  const userId = await getAuthUserId(ctx)
+  const userId = await getAuthUserId<'users'>(ctx, components.auth)
   if (userId === null) {
     throw new Error('Not authenticated')
   }

@@ -8,6 +8,7 @@ export default defineNuxtConfig({
     server: true,
     auth: {
       provider: 'convex-auth',
+      signIn: ['auth:signInWithUsernamePassword'],
     },
   },
 })

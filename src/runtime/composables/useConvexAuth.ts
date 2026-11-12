@@ -129,8 +129,11 @@ export function useConvexAuth(setup?: UseConvexAuthSetupOptions): UseConvexAuthR
       )
     }
 
+    // Separate sources so each flag is compared by value: providers that
+    // replace a snapshot object on every token rotation must not re-run
+    // `setAuth` (which would force another refresh, in a loop).
     watch(
-      () => [toValue(setup.isLoading) ?? false, toValue(setup.isAuthenticated) ?? true],
+      [() => toValue(setup.isLoading) ?? false, () => toValue(setup.isAuthenticated) ?? true],
       syncFromProvider,
       { immediate: true },
     )

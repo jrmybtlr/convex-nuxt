@@ -1,9 +1,11 @@
 import { defineSchema, defineTable } from 'convex/server'
 import { v } from 'convex/values'
-import { authTables } from '@convex-dev/auth/server'
 
 export default defineSchema({
-  ...authTables,
+  // App-owned users table; Convex Auth v2 keeps its own data in components.
+  users: defineTable({
+    name: v.optional(v.string()),
+  }),
   tasks: defineTable({
     userId: v.id('users'),
     text: v.string(),

@@ -1,22 +1,38 @@
 import type { H3Event } from 'h3'
 import { createError, getCookie } from 'h3'
-import { resolveAuthCookieName } from '../utils/authStorage'
+import { isJwtExpiring, isSsrConvexAuth, resolveAuthCookieName } from '../utils/authStorage'
 import { resolveFetchToken } from '../utils/fetchToken'
 import { readConvexConfig } from './convexConfig'
 
 /**
- * Read the Convex JWT from the configured auth cookie on this request.
- * Returns `undefined` when the cookie is missing or auth cookies are disabled.
+ * Read the Convex JWT for this request.
+ *
+ * - Convex Auth (SSR mode): the access token the session middleware
+ *   refreshed for this request, else the access-token cookie while valid.
+ * - BYO providers: the configured `convex.auth.cookie`.
+ *
+ * Returns `undefined` when there is no session or auth cookies are disabled.
  */
 export function getConvexToken(event: H3Event): string | undefined {
-  const cookieName = resolveAuthCookieName(readConvexConfig(event)?.auth)
+  const auth = readConvexConfig(event)?.auth
+  if (isSsrConvexAuth(auth)) {
+    const fromMiddleware = (event.context as { convexAuthToken?: string | null }).convexAuthToken
+    if (fromMiddleware !== undefined) {
+      return fromMiddleware ?? undefined
+    }
+  }
+  const cookieName = resolveAuthCookieName(auth)
   if (!cookieName) {
     return undefined
   }
-  return resolveFetchToken({
+  const token = resolveFetchToken({
     cookieName,
     cookieValue: getCookie(event, cookieName),
   })
+  if (token && isSsrConvexAuth(auth) && isJwtExpiring(token, 0)) {
+    return undefined
+  }
+  return token
 }
 
 /**

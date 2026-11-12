@@ -2,7 +2,17 @@
 import type { Id } from '~~/convex/_generated/dataModel'
 import { api } from '~~/convex/_generated/api'
 
-const { isAuthenticated, isLoading, showAuthedUi, pending: authPending, signOut } = useAuth()
+const { isAuthenticated, isLoading, showAuthedUi, signOut } = useAuth()
+const signingOut = ref(false)
+
+async function onSignOut() {
+  signingOut.value = true
+  try {
+    await signOut()
+  } finally {
+    signingOut.value = false
+  }
+}
 
 // `authenticated: true` skips live subscribe until Convex confirms; SSR still
 // snapshots via the cookie-stamped isAuthenticated, and the overlay keeps the
@@ -50,8 +60,8 @@ async function onRemove(taskId: Id<'tasks'>) {
         v-if="showAuthedUi"
         type="button"
         class="rounded-md border border-zinc-200 px-3 py-1.5 text-sm disabled:opacity-50"
-        :disabled="authPending"
-        @click="signOut()"
+        :disabled="signingOut"
+        @click="onSignOut()"
       >
         Sign out
       </button>

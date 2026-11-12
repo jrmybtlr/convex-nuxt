@@ -1,279 +1,261 @@
 /**
  * @vitest-environment happy-dom
  */
+import { AuthClient, InMemoryStorage } from '@convex-dev/auth/browser'
+import { getFunctionName, makeFunctionReference } from 'convex/server'
 import { beforeEach, describe, expect, it, vi } from 'vite-plus/test'
-import { computed, nextTick, ref } from 'vue'
+import { shallowRef } from 'vue'
 import {
-  readLocal,
-  readVerifierAsync,
-  storageKey,
-  JWT_STORAGE_KEY,
-  REFRESH_TOKEN_STORAGE_KEY,
-  VERIFIER_STORAGE_KEY,
-  writeLocal,
-  writeVerifier,
-} from '../src/runtime/utils/authStorage'
-import {
-  configureConvexAuth,
-  resetConvexAuthClientOptionsForTests,
-  resetInMemoryTokenStorageForTests,
-} from '../src/runtime/utils/authClientOptions'
-import { resetAuthMutexesForTests } from '../src/runtime/utils/authMutex'
+  OAUTH_ACTIONS_KEY,
+  OAUTH_FLOW_ERROR_KEY,
+  OAUTH_SETUP_ID,
+  convexOAuth,
+  type OAuthActions,
+} from '../src/runtime/auth/oauth'
+import type { ConvexAuthBinding } from '../src/runtime/utils/context'
 
-const CONVEX_URL = 'https://example.convex.cloud'
-const jwtKey = storageKey(JWT_STORAGE_KEY, CONVEX_URL)
-const refreshKey = storageKey(REFRESH_TOKEN_STORAGE_KEY, CONVEX_URL)
-const verifierKey = storageKey(VERIFIER_STORAGE_KEY, CONVEX_URL)
+const NAMESPACE = 'https://example.convex.cloud'
 
-const { cookieRef, stateStore, actionMock } = vi.hoisted(() => {
-  // vitest hoisted factories run before ESM imports resolve
-  const { ref } = require('vue') as typeof import('vue')
+const startSignIn = makeFunctionReference<'mutation'>('auth:startSignInWithGithub')
+const completeSignIn = makeFunctionReference<'mutation'>('auth:completeSignInWithGithub')
+const refs = { providerName: 'github', startSignIn, completeSignIn } as never
+
+function fakeJwt(expSeconds = Math.floor(Date.now() / 1000) + 60): string {
+  const encode = (value: unknown) =>
+    btoa(JSON.stringify(value)).replace(/=+$/, '').replace(/\+/g, '-').replace(/\//g, '_')
+  return `${encode({ alg: 'none' })}.${encode({ exp: expSeconds, sub: 'user' })}.sig`
+}
+
+function bundle(accessToken = fakeJwt()) {
   return {
-    cookieRef: ref<string | null>(null),
-    stateStore: new Map<string, { value: unknown }>(),
-    actionMock: vi.fn(),
+    accessToken,
+    refreshToken: 'refresh-1',
+    refreshTokenExpiresAt: Date.now() + 60_000,
+    userId: 'users:1',
   }
+}
+
+function createClient(options: {
+  storage?: InMemoryStorage
+  signInMutation?: ReturnType<typeof vi.fn>
+  convexMutation?: ReturnType<typeof vi.fn>
+  replaceUrl?: (url: string) => void
+}) {
+  const storage = options.storage ?? new InMemoryStorage()
+  const signInMutation = options.signInMutation ?? vi.fn()
+  const convexMutation = options.convexMutation ?? vi.fn()
+  const client = new AuthClient({
+    mode: 'spa',
+    authApi: {
+      refreshSession: vi.fn(async () => ({ kind: 'noSession' as const })),
+      signOut: vi.fn(async () => {}),
+    },
+    storage,
+    storageNamespace: NAMESPACE,
+    ambientSignIns: {
+      signIns: [convexOAuth()],
+      signInApi: { mutation: signInMutation, action: vi.fn() } as never,
+      convex: { mutation: convexMutation } as never,
+      replaceUrl: options.replaceUrl ?? ((url) => window.history.replaceState(null, '', url)),
+    },
+  })
+  return { client, storage, signInMutation, convexMutation }
+}
+
+function flowStorageKey() {
+  // NamespacedStorage: `<key>_<namespace without non-alphanumerics>`, scoped per sign-in id.
+  return `__convexAuthSignIn_${OAUTH_SETUP_ID}_flow_${NAMESPACE.replace(/[^a-z0-9]/gi, '')}`
+}
+
+describe('convexOAuth ambient sign-in', () => {
+  beforeEach(() => {
+    window.history.replaceState(null, '', '/')
+  })
+
+  it('redeems a convexAuthCode callback against the saved flow and adopts the session', async () => {
+    const tokens = bundle()
+    const signInMutation = vi.fn(async (_fn: unknown, _args: unknown) => ({
+      status: 'complete',
+      tokens,
+    }))
+    const replaceUrl = vi.fn((url: string) => window.history.replaceState(null, '', url))
+    const storage = new InMemoryStorage()
+
+    // Start a flow so the client saves its state where it will look for it.
+    const convexMutation = vi.fn(async () => ({
+      redirect: 'https://github.com/login/oauth/authorize?x=1',
+      state: 'state-123',
+    }))
+    const starter = createClient({ storage, convexMutation })
+    const actions = starter.client
+      .ambientSignInValues(OAUTH_SETUP_ID)
+      .get<OAuthActions>(OAUTH_ACTIONS_KEY)!
+    const locationAssign = vi.fn()
+    const realLocation = window.location
+    Object.defineProperty(window, 'location', {
+      configurable: true,
+      value: {
+        get href() {
+          return realLocation.href
+        },
+        set href(value: string) {
+          locationAssign(value)
+        },
+      },
+    })
+    try {
+      const started = await actions.signIn(refs, { redirectTo: 'http://localhost:3000/after' })
+      expect(started.status).toBe('redirect')
+      expect(convexMutation).toHaveBeenCalledWith(startSignIn, {
+        redirectTo: 'http://localhost:3000/after',
+      })
+      expect(locationAssign).toHaveBeenCalledWith('https://github.com/login/oauth/authorize?x=1')
+    } finally {
+      Object.defineProperty(window, 'location', { configurable: true, value: realLocation })
+    }
+
+    // Return from the provider on a fresh page load.
+    window.history.replaceState(null, '', '/after?convexAuthCode=abc&keep=1')
+    const { client } = createClient({ storage, signInMutation, replaceUrl })
+    await client.init()
+    await vi.waitFor(() => expect(client.getSnapshot().isAuthenticated).toBe(true))
+
+    expect(signInMutation).toHaveBeenCalledTimes(1)
+    const [fn, args] = signInMutation.mock.calls[0]! as [never, unknown]
+    expect(getFunctionName(fn)).toBe('auth:completeSignInWithGithub')
+    expect(args).toEqual({ code: 'abc', state: 'state-123' })
+    expect(client.getSnapshot().token).toBe(tokens.accessToken)
+    expect(replaceUrl).toHaveBeenCalledTimes(1)
+    expect(window.location.search).toBe('?keep=1')
+  })
+
+  it('reports INVALID_FLOW when no flow was started in this browser', async () => {
+    window.history.replaceState(null, '', '/?convexAuthCode=abc')
+    const signInMutation = vi.fn()
+    const { client } = createClient({ signInMutation })
+    await client.init()
+    const values = client.ambientSignInValues(OAUTH_SETUP_ID)
+    await vi.waitFor(() =>
+      expect(values.get(OAUTH_FLOW_ERROR_KEY)).toEqual({ error: 'INVALID_FLOW' }),
+    )
+    expect(signInMutation).not.toHaveBeenCalled()
+    expect(client.getSnapshot().isAuthenticated).toBe(false)
+  })
+
+  it('maps a convexAuthError callback to a flow error and strips it', async () => {
+    window.history.replaceState(null, '', '/?convexAuthError=access_denied')
+    const { client } = createClient({})
+    await client.init()
+    expect(client.ambientSignInValues(OAUTH_SETUP_ID).get(OAUTH_FLOW_ERROR_KEY)).toEqual({
+      error: 'ACCESS_DENIED',
+    })
+    expect(window.location.search).toBe('')
+  })
+
+  it('leaves unrelated ?code= params alone', async () => {
+    window.history.replaceState(null, '', '/?code=app-owned')
+    const replaceUrl = vi.fn()
+    const { client } = createClient({ replaceUrl })
+    await client.init()
+    expect(replaceUrl).not.toHaveBeenCalled()
+    expect(client.ambientSignInValues(OAUTH_SETUP_ID).get(OAUTH_FLOW_ERROR_KEY)).toBeNull()
+  })
+
+  it('stores the flow under the oauth sign-in namespace', async () => {
+    const storage = new InMemoryStorage()
+    const convexMutation = vi.fn(async () => ({ redirect: 'https://idp.example/x', state: 's' }))
+    const { client } = createClient({ storage, convexMutation })
+    const actions = client.ambientSignInValues(OAUTH_SETUP_ID).get<OAuthActions>(OAUTH_ACTIONS_KEY)!
+    const realLocation = window.location
+    Object.defineProperty(window, 'location', {
+      configurable: true,
+      value: { href: realLocation.href },
+    })
+    try {
+      await actions.signIn(refs)
+    } finally {
+      Object.defineProperty(window, 'location', { configurable: true, value: realLocation })
+    }
+    const keys = Object.keys((storage as unknown as { store: Record<string, string> }).store)
+    expect(keys.some((key) => key.includes(OAUTH_SETUP_ID))).toBe(true)
+    expect(flowStorageKey()).toContain(OAUTH_SETUP_ID)
+  })
 })
 
-vi.mock('nuxt/app', () => ({
-  useRuntimeConfig: () => ({
-    public: {
-      convex: {
-        url: CONVEX_URL,
-        auth: { provider: 'convex-auth', cookie: 'convex_jwt' },
-      },
-    },
-  }),
-  useState: <T>(key: string, init: () => T) => {
-    if (!stateStore.has(key)) {
-      stateStore.set(key, ref(init()))
-    }
-    return stateStore.get(key)!
-  },
-  useCookie: () => cookieRef,
+const contextRef: { current: { convexAuth: ConvexAuthBinding | null } } = vi.hoisted(() => ({
+  current: { convexAuth: null },
 }))
 
-vi.mock('../src/runtime/utils/authCookie', () => ({
-  AUTH_JWT_COOKIE_MAX_AGE: 60 * 60 * 24 * 30,
-  useAuthJwtCookie: () => cookieRef,
-  useSsrTokenRef: () => computed(() => cookieRef.value || undefined),
+vi.mock('nuxt/app', () => ({}))
+
+vi.mock('../src/runtime/utils/context', () => ({
+  useConvexContext: () => contextRef.current,
 }))
 
 vi.mock('../src/runtime/composables/useConvexAuth', () => ({
-  useConvexAuth: () => ({
-    isLoading: computed(() => false),
-    isAuthenticated: computed(() => false),
-    isRefreshing: computed(() => false),
-    hasSsrSession: computed(() => !!cookieRef.value),
-  }),
+  useConvexAuth: () => ({}),
 }))
 
-vi.mock('../src/runtime/utils/context', () => ({
-  tryUseConvexContext: () => ({
-    url: CONVEX_URL,
-    client: null,
-    ssrToken: computed(() => cookieRef.value || undefined),
-    auth: {},
-    createHttpClient: vi.fn(),
-  }),
-  useConvexContext: () => ({
-    url: CONVEX_URL,
-    client: null,
-    ssrToken: computed(() => cookieRef.value || undefined),
-    auth: {},
-    createHttpClient: vi.fn(),
-  }),
-}))
+function binding(overrides: Partial<ConvexAuthBinding> = {}): ConvexAuthBinding {
+  return {
+    mode: 'ssr',
+    state: shallowRef({ isLoading: false, isAuthenticated: false, token: null }),
+    signInApi: { mutation: vi.fn(), action: vi.fn() },
+    setSession: vi.fn(async () => {}),
+    signOut: vi.fn(async () => {}),
+    ambientValue: () => shallowRef(undefined),
+    ...overrides,
+  }
+}
 
-vi.mock('convex/browser', () => ({
-  ConvexHttpClient: class {
-    setAuth = vi.fn()
-    action = (...args: unknown[]) => actionMock(...args)
-  },
-}))
+describe('useConvexSignIn', () => {
+  const signInFn = makeFunctionReference<'mutation'>('auth:signInWithUsernamePassword')
 
-describe('readLocal / writeLocal', () => {
-  beforeEach(() => {
-    window.localStorage.clear()
+  it('adopts the session from a complete envelope', async () => {
+    const { useConvexSignIn } = await import('../src/runtime/composables/useAuth')
+    const tokens = { accessToken: 'jwt', userId: 'users:1' }
+    const b = binding()
+    vi.mocked(b.signInApi.mutation).mockResolvedValue({ status: 'complete', tokens })
+    contextRef.current = { convexAuth: b }
+
+    const { run, pending } = useConvexSignIn(signInFn)
+    const promise = run({ username: 'a', password: 'b' } as never)
+    expect(pending.value).toBe(true)
+    const result = await promise
+    expect(pending.value).toBe(false)
+    expect(result).toEqual({ status: 'complete', tokens })
+    expect(b.signInApi.mutation).toHaveBeenCalledWith(signInFn, { username: 'a', password: 'b' })
+    expect(b.setSession).toHaveBeenCalledWith(tokens)
   })
 
-  it('writes, reads, and removes values', () => {
-    writeLocal('k', 'v')
-    expect(readLocal('k')).toBe('v')
-    writeLocal('k', null)
-    expect(readLocal('k')).toBeNull()
+  it('returns method user errors without adopting a session', async () => {
+    const { useConvexSignIn } = await import('../src/runtime/composables/useAuth')
+    const b = binding()
+    const envelope = { status: 'error', userError: { error: 'INVALID_CREDENTIALS' } }
+    vi.mocked(b.signInApi.mutation).mockResolvedValue(envelope)
+    contextRef.current = { convexAuth: b }
+
+    const result = await useConvexSignIn(signInFn).run({} as never)
+    expect(result).toEqual(envelope)
+    expect(b.setSession).not.toHaveBeenCalled()
   })
 
-  it('returns null when localStorage throws (private mode)', () => {
-    const spy = vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
-      throw new Error('blocked')
-    })
-    expect(readLocal('k')).toBeNull()
-    spy.mockRestore()
+  it('folds thrown errors into OTHER_ERROR and supports actions', async () => {
+    const { useConvexSignIn } = await import('../src/runtime/composables/useAuth')
+    const b = binding()
+    const cause = new Error('boom')
+    vi.mocked(b.signInApi.action).mockRejectedValue(cause)
+    contextRef.current = { convexAuth: b }
 
-    const setSpy = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
-      throw new Error('quota')
-    })
-    expect(() => writeLocal('k', 'v')).not.toThrow()
-    setSpy.mockRestore()
-  })
-})
-
-describe('auth token helpers', () => {
-  beforeEach(() => {
-    window.localStorage.clear()
-    cookieRef.value = null
-    stateStore.clear()
-    actionMock.mockReset()
-    resetAuthMutexesForTests()
-    resetConvexAuthClientOptionsForTests()
-    resetInMemoryTokenStorageForTests()
-    document.cookie.split(';').forEach((part) => {
-      const name = part.split('=')[0]?.trim()
-      if (name) {
-        document.cookie = `${name}=; Max-Age=0; Path=/`
-      }
-    })
-    // happy-dom exposes a broken navigator.locks stub — force the
-    // in-memory mutex path used in browsers without Web Locks.
-    Object.defineProperty(navigator, 'locks', {
-      configurable: true,
-      value: undefined,
-    })
+    const actionFn = makeFunctionReference<'action'>('auth:signInWithPasskey')
+    const result = await useConvexSignIn(actionFn, { kind: 'action' }).run({} as never)
+    expect(result).toEqual({ status: 'error', userError: { error: 'OTHER_ERROR', cause } })
+    expect(b.signInApi.mutation).not.toHaveBeenCalled()
   })
 
-  it('getAuthToken returns the cached JWT without force refresh', async () => {
-    writeLocal(jwtKey, 'cached-jwt')
-    const { getAuthToken } = await import('../src/runtime/composables/useAuth')
-    await expect(getAuthToken({ forceRefreshToken: false })).resolves.toBe('cached-jwt')
-    expect(actionMock).not.toHaveBeenCalled()
-  })
-
-  it('getAuthToken refreshes via mutex and persists new tokens', async () => {
-    writeLocal(refreshKey, 'refresh-1')
-    actionMock.mockResolvedValue({
-      tokens: { token: 'new-jwt', refreshToken: 'refresh-2' },
-    })
-
-    const { getAuthToken } = await import('../src/runtime/composables/useAuth')
-    await expect(getAuthToken({ forceRefreshToken: true })).resolves.toBe('new-jwt')
-    expect(readLocal(jwtKey)).toBe('new-jwt')
-    expect(readLocal(refreshKey)).toBe('refresh-2')
-    await nextTick()
-    expect(cookieRef.value).toBe('new-jwt')
-  })
-
-  it('getAuthToken clears the session when refresh token is missing', async () => {
-    writeLocal(jwtKey, 'stale')
-    const { getAuthToken } = await import('../src/runtime/composables/useAuth')
-    await expect(getAuthToken({ forceRefreshToken: true })).resolves.toBeNull()
-    expect(readLocal(jwtKey)).toBeNull()
-    expect(cookieRef.value).toBeNull()
-  })
-
-  it('hydrateAuthFromStorage sets hasSession and cookie from localStorage', async () => {
-    writeLocal(jwtKey, 'stored-jwt')
-    const { hydrateAuthFromStorage, useAuthProviderState } =
-      await import('../src/runtime/composables/useAuth')
-    hydrateAuthFromStorage()
-    const { hasSession, isLoading } = useAuthProviderState()
-    expect(hasSession.value).toBe(true)
-    expect(isLoading.value).toBe(false)
-    expect(cookieRef.value).toBe('stored-jwt')
-  })
-
-  it('signOut clears storage even when auth:signOut fails', async () => {
-    writeLocal(jwtKey, 'jwt')
-    writeLocal(refreshKey, 'refresh')
-    cookieRef.value = 'jwt'
-    actionMock.mockRejectedValue(new Error('already signed out'))
-
-    const { signOut } = await import('../src/runtime/composables/useAuth')
-    await signOut()
-    expect(readLocal(jwtKey)).toBeNull()
-    expect(readLocal(refreshKey)).toBeNull()
-    expect(cookieRef.value).toBeNull()
-  })
-
-  it('keeps the OAuth verifier in a cookie when token storage is in-memory', async () => {
-    configureConvexAuth({ storage: 'inMemory', storageNamespace: CONVEX_URL })
-    await writeVerifier(verifierKey, 'ver-1')
-    resetInMemoryTokenStorageForTests()
-    expect(readLocal(verifierKey)).toBeNull()
-    await expect(readVerifierAsync(verifierKey)).resolves.toBe('ver-1')
-    await writeVerifier(verifierKey, null)
-    await expect(readVerifierAsync(verifierKey)).resolves.toBeNull()
-  })
-
-  it('waits for async token storage before the IdP redirect', async () => {
-    const order: string[] = []
-    const store = new Map<string, string>()
-    configureConvexAuth({
-      storage: {
-        getItem: async (key) => store.get(key) ?? null,
-        setItem: async (key, value) => {
-          order.push('set:start')
-          await new Promise((resolve) => setTimeout(resolve, 20))
-          store.set(key, value)
-          order.push('set:done')
-        },
-        removeItem: async (key) => {
-          store.delete(key)
-        },
-      },
-    })
-    actionMock.mockResolvedValue({
-      redirect: 'https://github.com/login/oauth/authorize',
-      verifier: 'ver-1',
-    })
-
-    let href = 'http://localhost/'
-    const originalLocation = window.location
-    const fakeLocation = {
-      pathname: '/',
-      search: '',
-      hash: '',
-      get href() {
-        return href
-      },
-      set href(value: string) {
-        order.push('redirect')
-        href = value
-      },
-    }
-    Object.defineProperty(window, 'location', {
-      configurable: true,
-      value: fakeLocation,
-    })
-
-    try {
-      const { signIn } = await import('../src/runtime/composables/useAuth')
-      await signIn('github')
-      expect(order).toEqual(['set:start', 'set:done', 'redirect'])
-      expect(store.get(verifierKey)).toBe('ver-1')
-      expect(href).toBe('https://github.com/login/oauth/authorize')
-    } finally {
-      Object.defineProperty(window, 'location', {
-        configurable: true,
-        value: originalLocation,
-      })
-    }
-  })
-
-  it('clears loading when replaceURL throws', async () => {
-    configureConvexAuth({
-      replaceURL: () => {
-        throw new Error('router blew up')
-      },
-    })
-    writeLocal(verifierKey, 'ver-1')
-    window.history.replaceState({}, '', '/callback?code=abc')
-
-    const { consumeOAuthCodeFromUrl, useAuthProviderState } =
-      await import('../src/runtime/composables/useAuth')
-    await expect(consumeOAuthCodeFromUrl()).resolves.toBe(false)
-    expect(actionMock).not.toHaveBeenCalled()
-    const { isLoading } = useAuthProviderState()
-    expect(isLoading.value).toBe(false)
+  it('throws a configuration error without Convex Auth on the client', async () => {
+    const { useConvexSignIn } = await import('../src/runtime/composables/useAuth')
+    contextRef.current = { convexAuth: null }
+    expect(() => useConvexSignIn(signInFn)).toThrowError(/convex-auth/)
   })
 })

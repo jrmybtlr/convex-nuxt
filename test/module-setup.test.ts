@@ -53,7 +53,8 @@ describe('module setup', () => {
     expect(convex.auth).toBeUndefined()
 
     const routes = serverHandlerRoutes(nuxt)
-    expect(routes).toContain('/api/convex/auth/session')
+    // Convex Auth routes are only mounted with `provider: 'convex-auth'` (SSR mode).
+    expect(routes.some((r) => r.startsWith('/api/convex/auth'))).toBe(false)
 
     // DevTools private runtimeConfig is only registered in nuxt.options.dev.
     if (nuxt.options.dev) {
@@ -73,7 +74,7 @@ describe('module setup', () => {
     }
   })
 
-  it('registers auth plugin and defaults cookie when provider is convex-auth', async () => {
+  it('registers the auth plugin and SSR auth routes when provider is convex-auth', async () => {
     nuxt = await loadNuxt({
       cwd: fileURLToPath(new URL('./fixtures/auth', import.meta.url)),
       ready: true,
@@ -85,10 +86,23 @@ describe('module setup', () => {
     expect(plugins.some((p) => p.includes('plugin.auth.client'))).toBe(true)
 
     const convex = nuxt.options.runtimeConfig.public.convex as {
-      auth?: { provider?: string; cookie?: string }
+      auth?: Record<string, unknown>
     }
     expect(convex.auth?.provider).toBe('convex-auth')
-    expect(convex.auth?.cookie).toBe('convex_jwt')
+    expect(convex.auth).not.toHaveProperty('signIn')
+
+    const serverAuth = (nuxt.options.runtimeConfig as { convexAuth?: { signIn?: string[] } })
+      .convexAuth
+    expect(serverAuth?.signIn).toEqual(['auth:signInWithUsernamePassword'])
+
+    const routes = serverHandlerRoutes(nuxt)
+    expect(routes).toEqual(
+      expect.arrayContaining([
+        '/api/convex/auth/signin',
+        '/api/convex/auth/refresh',
+        '/api/convex/auth/signout',
+      ]),
+    )
   })
 
   it('keeps AuthRefreshing, upload helpers, and DevTools wired in the module', async () => {

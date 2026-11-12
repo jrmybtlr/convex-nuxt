@@ -1,11 +1,20 @@
 import { convexTest } from 'convex-test'
-import { describe, expect, it } from 'vite-plus/test'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import { api } from './_generated/api'
 import schema from './schema'
 import { modules } from './test.setup'
 
+// Convex Auth v2 resolves the user through its `auth` component session.
+// These tests cover ownership rules, so map the identity subject straight
+// to the app user id instead of minting real sessions.
+vi.mock('@convex-dev/auth/server', () => ({
+  getAuthUserId: async (ctx: {
+    auth: { getUserIdentity: () => Promise<{ subject: string } | null> }
+  }) => (await ctx.auth.getUserIdentity())?.subject ?? null,
+}))
+
 function asSubject(userId: string): string {
-  return `${userId}|session-test`
+  return userId
 }
 
 describe('files', () => {

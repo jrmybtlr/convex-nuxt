@@ -10,73 +10,91 @@ import {
   defineNuxtModule,
 } from '@nuxt/kit'
 import { defu } from 'defu'
-import { resolveAuthCookieName } from './runtime/utils/authStorage'
+import { isConvexAuth, resolveAuthMode, resolveAuthRoutes } from './runtime/utils/authStorage'
 import { suggestedCloudUrlFromMismatch } from './runtime/utils/convexDashboard'
 import { warnStaleLocalConvexUrl } from './runtime/utils/errors'
 
 export interface ModuleAuthOptions {
   /**
-   * Opt-in first-party Convex Auth (`@convex-dev/auth`) client.
+   * Opt-in first-party Convex Auth v2 (`@convex-dev/auth@^2`).
    *
-   * When set to `'convex-auth'`, the module registers a client plugin that
-   * hydrates tokens, handles OAuth `?code=` callbacks, and wires
-   * `useConvexAuth({ fetchToken })`. It also auto-imports `useAuth`,
-   * `signIn`, and `signOut` so apps only need forms.
+   * Registers a client plugin built on `AuthClient` from
+   * `@convex-dev/auth/browser` (session restore, refresh, cross-tab sync,
+   * OAuth callbacks, server-side revocation), auto-imports `useAuth`,
+   * `useConvexSignIn`, `useOAuth`, `useOAuthSignIn` and `signOut`, and in
+   * SSR mode mounts the auth routes from `@convex-dev/auth/ssr` in Nitro.
    *
    * Omit for bring-your-own providers (Clerk, Auth0, custom) — wire
    * `useConvexAuth({ fetchToken })` yourself.
    */
   provider?: 'convex-auth'
   /**
-   * Cookie name whose value is a JWT used for authenticated SSR queries.
-   * When set, the server plugin reads this cookie into `ctx.ssrToken` and
-   * `useConvexQuery` falls back to it when `options.token` is omitted.
-   * `useAuth` / `useConvexAuth` expose the presence of this cookie as
-   * `hasSsrSession`.
-   * Nitro `fetch*` helpers also read this cookie when `{ event }` is passed.
+   * Convex Auth session model.
    *
-   * Defaults to `'convex_jwt'` when `provider === 'convex-auth'` and
-   * `httpOnly` is off. With `httpOnly: true`, defaults to `__convexAuthJWT`.
-   * Otherwise off — BYO apps must opt in and write the JWT after sign-in.
-   */
-  cookie?: string
-  /**
-   * Store JWT + refresh tokens in HttpOnly cookies via Nitro
-   * (`/api/convex/auth/session`). Cookies are not readable via
-   * `document.cookie`. Prefer `true` in production.
+   * - `'ssr'` (default): the refresh token lives in an httpOnly cookie set by
+   *   Nitro; sign-ins go through the auth proxy route; SSR renders
+   *   authenticated. Requires {@link signIn}.
+   * - `'spa'`: tokens live in browser storage and sign-ins go straight to
+   *   Convex. SSR renders signed out.
    *
-   * Note: ConvexClient still needs the JWT in memory for the WebSocket;
-   * the session route returns it only via same-origin POST `{ getToken: true }`.
-   * HttpOnly mitigates cookie theft, not XSS session theft. The readable
-   * presence cookie drives `hasSsrSession` / `showAuthedUi` (UI only — gate
-   * private queries with `{ authenticated: true }`).
+   * @default 'ssr'
+   */
+  mode?: 'ssr' | 'spa'
+  /**
+   * Names of the session functions exported from your Convex auth file
+   * (the result of `setupConvexAuth`).
    *
-   * @default false
+   * @default { refreshSession: 'auth:refreshSession', signOut: 'auth:signOut', isAuthenticated: 'auth:isAuthenticated' }
    */
-  httpOnly?: boolean
+  api?: {
+    refreshSession?: string
+    signOut?: string
+    isAuthenticated?: string
+  }
   /**
-   * Readable presence cookie when `httpOnly` is enabled.
-   * @default 'convex_auth_present'
+   * SSR mode: every Convex function that can issue a session (sign-in,
+   * sign-up, OAuth `completeSignIn*`, …), e.g.
+   * `['auth:signInWithUsernamePassword', 'auth:signUpWithUsernamePassword']`.
+   * The auth proxy refuses anything not listed. Stored in private runtime
+   * config (`runtimeConfig.convexAuth.signIn`).
    */
-  presentCookie?: string
+  signIn?: string[]
   /**
-   * Namespace for local token keys (React `storageNamespace` parity).
-   * Non-alphanumeric characters are stripped. Defaults to the deployment URL.
+   * SSR mode: path prefix for the Nitro auth routes
+   * (`<prefix>/signin`, `<prefix>/refresh`, `<prefix>/signout`).
+   * @default '/api/convex/auth'
+   */
+  routePrefix?: string
+  /**
+   * SSR mode: origins trusted by the auth routes' CSRF check besides the
+   * request's own Host (e.g. behind a proxy that rewrites Host).
+   */
+  allowedOrigins?: string[]
+  /**
+   * SSR mode: auth cookie attributes. `httpOnly`, `sameSite` and lifetimes
+   * are fixed by Convex Auth. `secure` defaults to true except on localhost.
+   */
+  cookieOptions?: { secure?: boolean; domain?: string; path?: string }
+  /**
+   * Namespace for token storage keys. Non-alphanumeric characters are
+   * ignored. Defaults to the deployment URL.
    */
   storageNamespace?: string
   /**
    * Client token storage. `'localStorage'` (default) or `'inMemory'`.
-   * For a custom TokenStorage or `replaceURL` / function `shouldHandleCode`,
-   * call `configureConvexAuth` from a client plugin with `enforce: 'pre'`.
-   * Ignored when `httpOnly` is enabled.
+   * For a custom TokenStorage, call `configureConvexAuth({ storage })` from a
+   * client plugin with `enforce: 'pre'`.
    * @default 'localStorage'
    */
   storage?: 'localStorage' | 'inMemory'
+  /** Log Convex Auth refresh / lifecycle steps to the console. */
+  verbose?: boolean
   /**
-   * When `false`, do not consume `?code=` OAuth callbacks.
-   * For a function gate, use `configureConvexAuth({ shouldHandleCode })`.
+   * BYO providers only: cookie whose value is a JWT used for authenticated
+   * SSR queries and Nitro `fetch*` helpers. The app writes it after sign-in.
+   * Ignored with `provider: 'convex-auth'`.
    */
-  shouldHandleCode?: boolean
+  cookie?: string
 }
 
 export interface ModuleOptions {
@@ -104,7 +122,16 @@ export interface ModuleOptions {
   auth?: ModuleAuthOptions
 }
 
-export type { UseAuthReturn, SignInResult, AuthTokens } from './runtime/composables/useAuth'
+export type {
+  UseAuthReturn,
+  ConvexAuthSession,
+  ConvexSignInResult,
+  OAuthCompleteResult,
+  OAuthFlowError,
+  OAuthProviderRefs,
+  OAuthSignInOptions,
+  OAuthStartResult,
+} from './runtime/composables/useAuth'
 
 export interface ModulePublicRuntimeConfig {
   convex: {
@@ -161,7 +188,9 @@ export type {
   ConvexAuthClientOptions,
   ConvexAuthTokenStorage,
   ConvexAuthStorageMode,
+  ConvexAmbientSignIn,
 } from './runtime/utils/authClientOptions'
+export type { ConvexAuthServerRuntimeConfig } from './runtime/server/convexAuth/setup'
 export { configureConvexAuth } from './runtime/utils/authClientOptions'
 
 export default defineNuxtModule<ModuleOptions>({
@@ -183,12 +212,40 @@ export default defineNuxtModule<ModuleOptions>({
       | ModulePublicRuntimeConfig['convex']
       | undefined
 
-    const auth = options.auth
-      ? {
-          ...options.auth,
-          cookie: resolveAuthCookieName(options.auth) ?? options.auth.cookie,
+    // Server-only auth options stay out of the public runtime config.
+    const {
+      signIn: authSignIn,
+      allowedOrigins: authAllowedOrigins,
+      cookieOptions: authCookieOptions,
+      ...publicAuth
+    } = options.auth ?? {}
+    const auth = options.auth ? publicAuth : undefined
+
+    if (auth && isConvexAuth(auth)) {
+      for (const legacy of ['httpOnly', 'presentCookie', 'shouldHandleCode'] as const) {
+        if (legacy in (auth as Record<string, unknown>)) {
+          console.warn(
+            `[use-convex] convex.auth.${legacy} was removed with Convex Auth v2 support. ` +
+              'See the README migration notes.',
+          )
         }
-      : options.auth
+      }
+      if (resolveAuthMode(auth) === 'ssr' && !authSignIn?.length) {
+        console.warn(
+          '[use-convex] convex.auth.signIn is empty: the SSR auth proxy will refuse every ' +
+            "sign-in. List your session-issuing functions, e.g. ['auth:signInWithUsernamePassword'].",
+        )
+      }
+    }
+
+    nuxt.options.runtimeConfig.convexAuth = defu(
+      (nuxt.options.runtimeConfig as { convexAuth?: Record<string, unknown> }).convexAuth ?? {},
+      {
+        signIn: authSignIn ?? [],
+        allowedOrigins: authAllowedOrigins ?? [],
+        cookie: authCookieOptions ?? {},
+      },
+    )
 
     nuxt.options.runtimeConfig.public.convex = defu(existing ?? {}, {
       url: options.url,
@@ -224,7 +281,8 @@ export default defineNuxtModule<ModuleOptions>({
 
     const resolver = createResolver(import.meta.url)
     const runtimeDir = resolver.resolve('./runtime')
-    const useConvexAuthProvider = auth?.provider === 'convex-auth'
+    const useConvexAuthProvider = isConvexAuth(auth)
+    const useSsrConvexAuth = useConvexAuthProvider && resolveAuthMode(auth) === 'ssr'
 
     // Ensure Nitro can resolve module runtime handlers / imports.
     nuxt.options.build.transpile.push(runtimeDir)
@@ -281,12 +339,24 @@ export default defineNuxtModule<ModuleOptions>({
     // Scan api/ + routes/ like a normal Nuxt server/ dir.
     addServerScanDir(resolver.resolve('./runtime/server'))
 
-    // Also register explicitly — some Nuxt/Nitro versions drop scanned
-    // handlers from published module packages during HMR.
-    addServerHandler({
-      route: '/api/convex/auth/session',
-      handler: resolver.resolve('./runtime/server/api/convex/auth/session'),
-    })
+    if (useSsrConvexAuth) {
+      const routes = resolveAuthRoutes(auth)
+      for (const [route, file] of [
+        [routes.signIn, 'signin'],
+        [routes.refresh, 'refresh'],
+        [routes.signOut, 'signout'],
+      ] as const) {
+        addServerHandler({
+          route,
+          method: 'post',
+          handler: resolver.resolve(`./runtime/server/convexAuth/${file}`),
+        })
+      }
+      addServerHandler({
+        middleware: true,
+        handler: resolver.resolve('./runtime/server/convexAuth/session.middleware'),
+      })
+    }
     if (nuxt.options.dev) {
       addServerHandler({
         route: '/__convex_devtools',
@@ -374,8 +444,20 @@ export default defineNuxtModule<ModuleOptions>({
               from: resolver.resolve('./runtime/composables/useAuth'),
             },
             {
-              name: 'signIn',
+              name: 'useConvexSignIn',
               from: resolver.resolve('./runtime/composables/useAuth'),
+            },
+            {
+              name: 'useOAuth',
+              from: resolver.resolve('./runtime/composables/useAuth'),
+            },
+            {
+              name: 'useOAuthSignIn',
+              from: resolver.resolve('./runtime/composables/useAuth'),
+            },
+            {
+              name: 'convexOAuth',
+              from: resolver.resolve('./runtime/auth/oauth'),
             },
             {
               name: 'signOut',
@@ -433,6 +515,8 @@ export default defineNuxtModule<ModuleOptions>({
     }
 
     const contextTypes = resolver.resolve('./runtime/utils/context')
+    const authTypes = resolver.resolve('./runtime/utils/authStorage')
+    const serverAuthTypes = resolver.resolve('./runtime/server/convexAuth/setup')
     addTypeTemplate({
       filename: 'types/convex-nuxt.d.ts',
       getContents: () => `// Generated by use-convex
@@ -444,13 +528,11 @@ declare module '@nuxt/schema' {
       url?: string
       server?: boolean
       client?: import('convex/browser').ConvexClientOptions
-      auth?: {
-        provider?: 'convex-auth'
-        cookie?: string
-        httpOnly?: boolean
-        presentCookie?: string
-      }
+      auth?: import('${authTypes}').ConvexAuthConfig
     }
+  }
+  interface RuntimeConfig {
+    convexAuth: import('${serverAuthTypes}').ConvexAuthServerRuntimeConfig
   }
 }
 
