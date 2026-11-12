@@ -474,6 +474,59 @@ describe('postAuth (SSR session routes)', () => {
   })
 })
 
+describe('retryingTokenFetcher', () => {
+  it('retries a failing refresh with backoff until it answers', async () => {
+    const { retryingTokenFetcher } = await import('../src/runtime/auth/sessionRoutes')
+    const fetchToken = vi
+      .fn()
+      .mockRejectedValueOnce(new Error('502'))
+      .mockRejectedValueOnce(new Error('502'))
+      .mockResolvedValueOnce('fresh')
+    const delays: number[] = []
+    const fetcher = retryingTokenFetcher(fetchToken, {
+      hasSession: () => true,
+      sleep: async (ms) => {
+        delays.push(ms)
+      },
+    })
+    await expect(fetcher({ forceRefreshToken: true })).resolves.toBe('fresh')
+    expect(fetchToken).toHaveBeenCalledTimes(3)
+    expect(delays).toEqual([1000, 2000])
+  })
+
+  it('caps the backoff and passes through a definitive no-session answer', async () => {
+    const { retryingTokenFetcher } = await import('../src/runtime/auth/sessionRoutes')
+    const fetchToken = vi.fn()
+    for (let i = 0; i < 7; i++) {
+      fetchToken.mockRejectedValueOnce(new Error('down'))
+    }
+    fetchToken.mockResolvedValueOnce(null)
+    const delays: number[] = []
+    const fetcher = retryingTokenFetcher(fetchToken, {
+      hasSession: () => true,
+      sleep: async (ms) => {
+        delays.push(ms)
+      },
+    })
+    await expect(fetcher({ forceRefreshToken: true })).resolves.toBeNull()
+    expect(Math.max(...delays)).toBe(30_000)
+  })
+
+  it('stops retrying once the session is gone locally', async () => {
+    const { retryingTokenFetcher } = await import('../src/runtime/auth/sessionRoutes')
+    let signedIn = true
+    const fetchToken = vi.fn().mockRejectedValue(new Error('down'))
+    const fetcher = retryingTokenFetcher(fetchToken, {
+      hasSession: () => signedIn,
+      sleep: async () => {
+        signedIn = false
+      },
+    })
+    await expect(fetcher({ forceRefreshToken: true })).resolves.toBeNull()
+    expect(fetchToken).toHaveBeenCalledTimes(1)
+  })
+})
+
 describe('configureConvexAuth', () => {
   beforeEach(async () => {
     const { resetConvexAuthClientOptionsForTests } =

@@ -36,3 +36,44 @@ export async function postAuth(route: string): Promise<AuthSessionResponse> {
   }
   throw new Error(`[use-convex] ${route} failed with ${res.status}`)
 }
+
+type TokenFetcher = (args: { forceRefreshToken: boolean }) => Promise<string | null | undefined>
+
+/**
+ * Wrap a token fetcher so it never rejects.
+ *
+ * `ConvexClient` does not catch a throwing fetcher: a refresh that fails
+ * during an outage would leave the socket paused with no further refresh
+ * scheduled. Instead, retry with capped exponential backoff until the
+ * refresh gives a real answer (a token, or `null` for "no session"), and
+ * stop early once the session is gone locally (e.g. the user signed out).
+ */
+export function retryingTokenFetcher(
+  fetchToken: TokenFetcher,
+  options: {
+    hasSession: () => boolean
+    onRetry?: (error: unknown, delayMs: number) => void
+    sleep?: (ms: number) => Promise<void>
+    maxDelayMs?: number
+  },
+): (args: { forceRefreshToken: boolean }) => Promise<string | null> {
+  const sleep = options.sleep ?? ((ms) => new Promise<void>((resolve) => setTimeout(resolve, ms)))
+  const maxDelayMs = options.maxDelayMs ?? 30_000
+  return async (args) => {
+    for (let attempt = 0; ; attempt++) {
+      try {
+        return (await fetchToken(args)) ?? null
+      } catch (error) {
+        if (!options.hasSession()) {
+          return null
+        }
+        const delayMs = Math.min(1000 * 2 ** attempt, maxDelayMs)
+        options.onRetry?.(error, delayMs)
+        await sleep(delayMs)
+        if (!options.hasSession()) {
+          return null
+        }
+      }
+    }
+  }
+}

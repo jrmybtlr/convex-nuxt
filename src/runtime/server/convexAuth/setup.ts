@@ -18,17 +18,13 @@ import {
 } from 'h3'
 import { useRuntimeConfig } from 'nitropack/runtime'
 import { MISSING_URL_HINT } from '../../utils/errors'
-import { resolveAuthApiNames, type ConvexAuthConfig } from '../../utils/authStorage'
+import {
+  resolveAuthApiNames,
+  type ConvexAuthConfig,
+  type ConvexAuthServerRuntimeConfig,
+} from '../../utils/authStorage'
 
-/** Server-only Convex Auth options (`runtimeConfig.convexAuth`). */
-export interface ConvexAuthServerRuntimeConfig {
-  /** Sign-in function names the auth proxy forwards, e.g. `'auth:signInWithUsernamePassword'`. */
-  signIn?: string[]
-  /** Origins trusted besides the request's own Host. */
-  allowedOrigins?: string[]
-  /** Cookie attributes. `secure` defaults to true except on localhost. */
-  cookie?: { secure?: boolean; domain?: string; path?: string }
-}
+export type { ConvexAuthServerRuntimeConfig }
 
 type Resolved = {
   convexUrl: string

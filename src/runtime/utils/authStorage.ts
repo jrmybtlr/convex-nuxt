@@ -43,6 +43,16 @@ export type ConvexAuthConfig = {
   verbose?: boolean
 }
 
+/** Server-only Convex Auth options (`runtimeConfig.convexAuth`). */
+export interface ConvexAuthServerRuntimeConfig {
+  /** Sign-in function names the auth proxy forwards, e.g. `'auth:signInWithUsernamePassword'`. */
+  signIn?: string[]
+  /** Origins trusted besides the request's own Host. */
+  allowedOrigins?: string[]
+  /** Cookie attributes. `secure` defaults to true except on localhost. */
+  cookie?: { secure?: boolean; domain?: string; path?: string }
+}
+
 /** The Convex Auth v2 access-token cookie (fixed by `@convex-dev/auth/ssr`). */
 export const CONVEX_AUTH_JWT_COOKIE = '__convexAuthJWT'
 /** The Convex Auth v2 refresh-token cookie (fixed by `@convex-dev/auth/ssr`). */

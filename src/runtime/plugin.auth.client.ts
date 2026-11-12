@@ -10,7 +10,7 @@ import {
   convexOAuth,
   type AmbientSignInClient,
 } from './auth/oauth'
-import { postAuth } from './auth/sessionRoutes'
+import { postAuth, retryingTokenFetcher } from './auth/sessionRoutes'
 import { getConvexAuthClientOptions } from './utils/authClientOptions'
 import { useConvexAuthTokenState } from './utils/authCookie'
 import {
@@ -236,7 +236,16 @@ export default defineNuxtPlugin({
     ctx.convexAuth = binding
 
     const convexAuth = useConvexAuth({
-      fetchToken: (args) => authClient.fetchAccessToken(args),
+      // A refresh that fails (outage, proxy error) is retried with backoff
+      // rather than thrown into ConvexClient or treated as signed out.
+      fetchToken: retryingTokenFetcher((args) => authClient.fetchAccessToken(args), {
+        hasSession: () => authClient.getAccessToken() !== null,
+        onRetry: (error, delayMs) => {
+          if (import.meta.dev || auth?.verbose) {
+            console.warn(`[use-convex] Session refresh failed; retrying in ${delayMs}ms.`, error)
+          }
+        },
+      }),
       isLoading: () => state.value.isLoading,
       isAuthenticated: () => state.value.isAuthenticated,
     })
