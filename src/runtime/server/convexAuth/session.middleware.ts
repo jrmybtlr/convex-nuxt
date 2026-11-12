@@ -30,10 +30,13 @@ export default defineEventHandler(async (event) => {
   const prefix = baseURL + (auth?.routePrefix ?? DEFAULT_AUTH_ROUTE_PREFIX).replace(/\/+$/, '')
   if (
     pathname.startsWith(prefix + '/') ||
+    // Build assets and dev tooling never need a session. Other paths with a
+    // dot (`/users/jane.doe`, `/api/report.json`) are pages and endpoints
+    // that may. Files in `public/` are served by Nitro before middleware.
     pathname.startsWith(`${baseURL}/_nuxt/`) ||
-    pathname.startsWith(`${baseURL}/__nuxt`) ||
-    // Static assets (`/favicon.ico`, `/robots.txt`, …) never need a session.
-    /\.[a-z0-9]+$/i.test(pathname)
+    pathname.startsWith(`${baseURL}/__nuxt_devtools__`) ||
+    pathname.startsWith(`${baseURL}/__convex_devtools`) ||
+    pathname === `${baseURL}/favicon.ico`
   ) {
     return
   }

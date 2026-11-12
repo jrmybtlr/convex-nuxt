@@ -82,6 +82,11 @@ describe('fixture: auth (Convex Auth v2, SSR mode)', async () => {
     expect(res.status).toBe(403)
   })
 
+  it('runs the session middleware for endpoints whose path contains a dot', async () => {
+    const body = await $fetch<{ middlewareRan: boolean }>('/api/report.json')
+    expect(body.middlewareRan).toBe(true)
+  })
+
   it('renders signed out when the access cookie is expired and there is no refresh cookie', async () => {
     const encode = (value: unknown) => Buffer.from(JSON.stringify(value)).toString('base64url')
     const expired = `${encode({ alg: 'none' })}.${encode({ exp: 1 })}.sig`

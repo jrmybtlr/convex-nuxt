@@ -1,4 +1,5 @@
 import type { FunctionArgs, FunctionReturnType } from 'convex/server'
+import { sessionKeyFromToken } from '../utils/authStorage'
 import type { ConvexRef } from '../utils/functionReference'
 import { convexToJson, jsonToConvex } from 'convex/values'
 import { useAsyncData, useRuntimeConfig } from 'nuxt/app'
@@ -134,10 +135,11 @@ export async function useConvexQuery<Query extends ConvexRef<'query'>>(
         () => toValue(args),
         // Re-run HttpClient snapshot when the SSR JWT cookie / token changes
         // (e.g. after sign-in with live:false, or Refresh).
-        // Session presence, not the token value: Convex Auth rotates the
-        // access token every minute, and the live subscription already
-        // covers updates while signed in. An explicit `token` still re-runs.
-        () => options.token ?? !!ctx.ssrToken.value,
+        // Session identity (JWT iss + sub), not the raw token: Convex Auth
+        // rotates the access token every minute without changing session,
+        // but switching accounts must re-run the snapshot (`live: false`
+        // and BYO cookies included).
+        () => sessionKeyFromToken(options.token ?? ctx.ssrToken.value),
         // Re-run when auth confirms *and* a JWT is available for HttpClient
         // (readable cookie / SSR). Avoids anonymous client refetches with HttpOnly.
         () =>

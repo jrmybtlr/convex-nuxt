@@ -137,3 +137,41 @@ export function isJwtExpiring(token: string, skewSeconds = 10, nowMs = Date.now(
     return true
   }
 }
+
+/**
+ * A stable identity for the session a JWT belongs to: `iss` + `sub`.
+ *
+ * Convex Auth rotates the access token every minute but keeps the session
+ * id in `sub`, so this changes on sign-in / sign-out / account switch, not
+ * on rotation. Tokens without readable claims fall back to the token itself
+ * (any change is treated as a new session). Empty for no token.
+ */
+export function sessionKeyFromToken(token: string | null | undefined): string {
+  if (!token) {
+    return ''
+  }
+  const payload = token.split('.')[1]
+  if (payload) {
+    try {
+      const base64 = payload.replace(/-/g, '+').replace(/_/g, '/')
+      const padded = base64 + '='.repeat((4 - (base64.length % 4)) % 4)
+      const json =
+        typeof atob === 'function'
+          ? atob(padded)
+          : (
+              globalThis as {
+                Buffer?: { from: (s: string, e: string) => { toString: () => string } }
+              }
+            )
+              .Buffer!.from(padded, 'base64')
+              .toString()
+      const claims = JSON.parse(json) as { iss?: unknown; sub?: unknown }
+      if (typeof claims.sub === 'string' && claims.sub) {
+        return `${typeof claims.iss === 'string' ? claims.iss : ''}|${claims.sub}`
+      }
+    } catch {
+      // Fall through to the raw token.
+    }
+  }
+  return token
+}

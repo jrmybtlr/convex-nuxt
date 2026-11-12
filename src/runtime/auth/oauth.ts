@@ -145,9 +145,34 @@ async function dropPendingFlow(storage: SignInStorage): Promise<void> {
  * `configureConvexAuth({ ambientSignIns: [convexOAuth(), …] })` when adding
  * others.
  */
-export function convexOAuth(): AmbientSignInClient {
+export type ConvexOAuthOptions = {
+  /**
+   * Where to keep the pending flow across the provider redirect, when the
+   * session token storage does not survive navigation (e.g. in-memory
+   * tokens). Defaults to the client's token storage.
+   */
+  flowStorage?: {
+    getItem: (key: string) => string | null | undefined | Promise<string | null | undefined>
+    setItem: (key: string, value: string) => void | Promise<void>
+    removeItem: (key: string) => void | Promise<void>
+  }
+  /** Key namespace for `flowStorage`, typically the deployment URL. */
+  namespace?: string
+}
+
+export function convexOAuth(options: ConvexOAuthOptions = {}): AmbientSignInClient {
   const setup = (ctx: AmbientSignInContext) => {
-    const { values, storage, signInApi, convex, replaceUrl } = ctx
+    const { values, signInApi, convex, replaceUrl } = ctx
+    const flowStorage = options.flowStorage
+    const suffix = (options.namespace ?? '').replace(/[^a-z0-9]/gi, '')
+    const flowKey = (key: string) => `__convexAuthOAuth_${key}_${suffix}`
+    const storage: SignInStorage = flowStorage
+      ? {
+          get: (key) => flowStorage.getItem(flowKey(key)),
+          set: (key, value) => flowStorage.setItem(flowKey(key), value),
+          remove: (key) => flowStorage.removeItem(flowKey(key)),
+        }
+      : ctx.storage
     const client = ctx.client as AuthClient
     const setFlowError = (flowError: OAuthFlowError | null) => {
       values.set(OAUTH_FLOW_ERROR_KEY, flowError)

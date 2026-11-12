@@ -1,3 +1,4 @@
+import { sessionKeyFromToken } from '../utils/authStorage'
 import type {
   FunctionArgs,
   FunctionReference,
@@ -156,10 +157,11 @@ export async function useConvexPaginatedQuery<Query extends PaginatedQueryRefere
       server,
       watch: [
         () => toValue(args),
-        // Session presence, not the token value: Convex Auth rotates the
-        // access token every minute, and the live subscription already
-        // covers updates while signed in. An explicit `token` still re-runs.
-        () => options.token ?? !!ctx.ssrToken.value,
+        // Session identity (JWT iss + sub), not the raw token: Convex Auth
+        // rotates the access token every minute without changing session,
+        // but switching accounts must re-run the snapshot (`live: false`
+        // and BYO cookies included).
+        () => sessionKeyFromToken(options.token ?? ctx.ssrToken.value),
         () =>
           requireAuth && ctx.auth.isAuthenticated.value && !!(options.token ?? ctx.ssrToken.value),
       ],

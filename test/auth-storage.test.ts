@@ -129,6 +129,57 @@ describe('convexOAuth ambient sign-in', () => {
     expect(window.location.search).toBe('?keep=1')
   })
 
+  it('completes a callback with in-memory tokens when the flow lives in sessionStorage', async () => {
+    window.sessionStorage.clear()
+    const flowOptions = { flowStorage: window.sessionStorage, namespace: NAMESPACE }
+    const make = (signInMutation: ReturnType<typeof vi.fn>, convexMutation = vi.fn()) =>
+      new AuthClient({
+        mode: 'spa',
+        authApi: {
+          refreshSession: vi.fn(async () => ({ kind: 'noSession' as const })),
+          signOut: vi.fn(async () => {}),
+        },
+        // A fresh in-memory store per page load, as after a full redirect.
+        storage: new InMemoryStorage(),
+        storageNamespace: NAMESPACE,
+        ambientSignIns: {
+          signIns: [convexOAuth(flowOptions)],
+          signInApi: { mutation: signInMutation, action: vi.fn() } as never,
+          convex: { mutation: convexMutation } as never,
+          replaceUrl: (url) => window.history.replaceState(null, '', url),
+        },
+      })
+
+    const convexMutation = vi.fn(async () => ({ redirect: 'https://idp.example/x', state: 'st' }))
+    const starter = make(vi.fn(), convexMutation)
+    const actions = starter
+      .ambientSignInValues(OAUTH_SETUP_ID)
+      .get<OAuthActions>(OAUTH_ACTIONS_KEY)!
+    const realLocation = window.location
+    Object.defineProperty(window, 'location', {
+      configurable: true,
+      value: { href: realLocation.href },
+    })
+    try {
+      await actions.signIn(refs)
+    } finally {
+      Object.defineProperty(window, 'location', { configurable: true, value: realLocation })
+    }
+
+    window.history.replaceState(null, '', '/?convexAuthCode=abc')
+    const tokens = bundle()
+    const signInMutation = vi.fn(async (_fn: unknown, _args: unknown) => ({
+      status: 'complete',
+      tokens,
+    }))
+    const returning = make(signInMutation)
+    await returning.init()
+    await vi.waitFor(() => expect(returning.getSnapshot().isAuthenticated).toBe(true))
+    expect(signInMutation.mock.calls[0]![1]).toEqual({ code: 'abc', state: 'st' })
+    // The one-time flow is consumed.
+    expect(window.sessionStorage.length).toBe(0)
+  })
+
   it('reports INVALID_FLOW when no flow was started in this browser', async () => {
     window.history.replaceState(null, '', '/?convexAuthCode=abc')
     const signInMutation = vi.fn()

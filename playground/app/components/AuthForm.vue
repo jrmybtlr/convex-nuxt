@@ -22,7 +22,7 @@ function describe(userError: { error: string; [key: string]: unknown }): string 
     case 'USERNAME_TOO_SHORT':
     case 'USERNAME_TOO_LONG':
     case 'USERNAME_HAS_INVALID_CHARACTERS':
-      return 'Usernames are letters, numbers, and underscores.'
+      return 'Choose a different username (1–100 characters, no special symbols).'
     case 'PASSWORD_TOO_COMMON':
       return 'That password is too common.'
     case 'PASSWORD_TOO_SHORT':

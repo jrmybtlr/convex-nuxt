@@ -10,6 +10,7 @@ import {
   convexOAuth,
   type AmbientSignInClient,
 } from './auth/oauth'
+import { postAuth } from './auth/sessionRoutes'
 import { getConvexAuthClientOptions } from './utils/authClientOptions'
 import { useConvexAuthTokenState } from './utils/authCookie'
 import {
@@ -25,20 +26,12 @@ import {
   type ConvexAuthSignInApi,
 } from './utils/context'
 
-type AuthSessionResponse = { tokens: { accessToken: string; userId: string } | null }
-
-/**
- * POST to the SSR refresh / sign-out route. Both reply with
- * `{ tokens }` on failure too (a dead session is a 401 with `tokens: null`).
- */
-async function postAuth(route: string): Promise<AuthSessionResponse> {
-  const res = await fetch(route, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: '{}',
-    credentials: 'same-origin',
-  })
-  return (await res.json().catch(() => ({ tokens: null }))) as AuthSessionResponse
+function sessionStorageOrUndefined(): Storage | undefined {
+  try {
+    return typeof window !== 'undefined' ? window.sessionStorage : undefined
+  } catch {
+    return undefined
+  }
 }
 
 /**
@@ -109,7 +102,13 @@ export default defineNuxtPlugin({
         })
       })
 
-    const signIns = (options.ambientSignIns as AmbientSignInClient[] | undefined) ?? [convexOAuth()]
+    // In-memory tokens don't survive the provider redirect, so keep the
+    // pending OAuth flow in sessionStorage (same tab, cleared on close).
+    const flowStorage =
+      !options.storage && auth?.storage === 'inMemory' ? sessionStorageOrUndefined() : undefined
+    const signIns = (options.ambientSignIns as AmbientSignInClient[] | undefined) ?? [
+      convexOAuth(flowStorage ? { flowStorage, namespace: storageNamespace } : {}),
+    ]
     const convexMutationApi = {
       mutation: (fn: FunctionReference<'mutation'>, args: Record<string, unknown>) =>
         convex.mutation(fn, args),

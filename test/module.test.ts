@@ -1,4 +1,4 @@
-import { describe, expect, it, vi, beforeEach } from 'vite-plus/test'
+import { afterEach, describe, expect, it, vi, beforeEach } from 'vite-plus/test'
 import { makeFunctionReference } from 'convex/server'
 import { convexQueryKey } from '../src/runtime/utils/queryKey'
 import { resolveQueryOverlay } from '../src/runtime/utils/overlay'
@@ -12,6 +12,7 @@ import {
   resolveAuthCookieName,
   resolveAuthMode,
   resolveAuthRoutes,
+  sessionKeyFromToken,
 } from '../src/runtime/utils/authStorage'
 
 const listTasks = makeFunctionReference<'query', Record<string, never>, Array<{ text: string }>>(
@@ -409,6 +410,67 @@ describe('authStorage helpers', () => {
     expect(isJwtExpiring(jwtWithExp(nowSeconds - 1), 0, now)).toBe(true)
     expect(isJwtExpiring(jwtWithExp(undefined))).toBe(true)
     expect(isJwtExpiring('not-a-jwt')).toBe(true)
+  })
+})
+
+describe('sessionKeyFromToken', () => {
+  const encode = (value: unknown) => Buffer.from(JSON.stringify(value)).toString('base64url')
+  const jwt = (claims: Record<string, unknown>) =>
+    `${encode({ alg: 'none' })}.${encode(claims)}.sig`
+
+  it('is stable across token rotation within one session', () => {
+    const a = jwt({ iss: 'https://x/components/auth', sub: 'session-1', iat: 1, exp: 61 })
+    const b = jwt({ iss: 'https://x/components/auth', sub: 'session-1', iat: 50, exp: 110 })
+    expect(a).not.toBe(b)
+    expect(sessionKeyFromToken(a)).toBe(sessionKeyFromToken(b))
+  })
+
+  it('changes on account switch', () => {
+    const a = jwt({ iss: 'https://x', sub: 'user-a' })
+    const b = jwt({ iss: 'https://x', sub: 'user-b' })
+    expect(sessionKeyFromToken(a)).not.toBe(sessionKeyFromToken(b))
+  })
+
+  it('falls back to the raw token without readable claims, and is empty without a token', () => {
+    expect(sessionKeyFromToken('opaque-token')).toBe('opaque-token')
+    expect(sessionKeyFromToken(jwt({ iss: 'https://x' }))).toBe(jwt({ iss: 'https://x' }))
+    expect(sessionKeyFromToken(undefined)).toBe('')
+    expect(sessionKeyFromToken('')).toBe('')
+  })
+})
+
+describe('postAuth (SSR session routes)', () => {
+  const realFetch = globalThis.fetch
+  afterEach(() => {
+    globalThis.fetch = realFetch
+  })
+
+  function respond(status: number, body: string, contentType = 'application/json') {
+    globalThis.fetch = vi.fn(
+      async () => new Response(body, { status, headers: { 'content-type': contentType } }),
+    ) as never
+  }
+
+  it('returns tokens from a 200 and the documented 401 no-session body', async () => {
+    const { postAuth } = await import('../src/runtime/auth/sessionRoutes')
+    respond(200, JSON.stringify({ tokens: { accessToken: 'jwt', userId: 'users:1' } }))
+    await expect(postAuth('/r')).resolves.toEqual({
+      tokens: { accessToken: 'jwt', userId: 'users:1' },
+    })
+    respond(401, JSON.stringify({ tokens: null }))
+    await expect(postAuth('/r')).resolves.toEqual({ tokens: null })
+  })
+
+  it('throws on outages, refusals and malformed bodies instead of reporting signed out', async () => {
+    const { postAuth } = await import('../src/runtime/auth/sessionRoutes')
+    respond(502, '<html>Bad gateway</html>', 'text/html')
+    await expect(postAuth('/r')).rejects.toThrow(/502/)
+    respond(403, JSON.stringify({ tokens: null }))
+    await expect(postAuth('/r')).rejects.toThrow(/403/)
+    respond(200, JSON.stringify({ ok: true }))
+    await expect(postAuth('/r')).rejects.toThrow(/200/)
+    respond(401, JSON.stringify({ tokens: { accessToken: 'x', userId: 'y' } }))
+    await expect(postAuth('/r')).rejects.toThrow(/401/)
   })
 })
 

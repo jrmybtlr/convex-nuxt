@@ -3,12 +3,11 @@ import { api } from '../convex/_generated/api'
 import type { Id } from '../convex/_generated/dataModel'
 import {
   authedConvexClient,
-  clearHttpOnlySession,
   CookieJar,
-  establishHttpOnlySession,
   fetchWithJar,
   resolveBaseURL,
   resolveConvexURL,
+  signOutSession,
   signUpPassword,
   type AuthTokens,
 } from './helpers'
@@ -24,7 +23,7 @@ type Task = {
 describe.skipIf(!enabled)('playground full flow (live)', () => {
   const runId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
   const taskPrefix = `e2e:${runId}:`
-  const email = `e2e.${runId}@example.com`
+  const username = `e2e_${runId.replace(/[^a-z0-9]/gi, '_')}`
   const password = 'e2e-test-password-1'
   const nitroTaskText = `${taskPrefix}nitro`
 
@@ -37,7 +36,7 @@ describe.skipIf(!enabled)('playground full flow (live)', () => {
     if (!tokens || !convexUrl) {
       return
     }
-    const client = authedConvexClient(convexUrl, tokens.token)
+    const client = authedConvexClient(convexUrl, tokens.accessToken)
     const listed = (await client.query(api.tasks.list, {})) as Task[]
     const created = listed.filter((task) => task.text.startsWith(taskPrefix))
     for (const task of created) {
@@ -46,10 +45,14 @@ describe.skipIf(!enabled)('playground full flow (live)', () => {
     const after = (await client.query(api.tasks.list, {})) as Task[]
     expect(after.some((task) => task.text.startsWith(taskPrefix))).toBe(false)
 
-    if (baseURL) {
-      await clearHttpOnlySession(baseURL, jar)
-    }
     tokens = null
+    if (baseURL) {
+      // Signing out revokes the session and clears its cookies, so the
+      // Nitro route is unauthenticated again.
+      await signOutSession(baseURL, jar)
+      const afterSignOut = await fetchWithJar(baseURL, jar, '/api/tasks')
+      expect(afterSignOut.status).toBe(401)
+    }
   }
 
   afterAll(async () => {
@@ -67,8 +70,7 @@ describe.skipIf(!enabled)('playground full flow (live)', () => {
     const unauthRes = await fetch(`${baseURL}/api/tasks`)
     expect(unauthRes.status).toBe(401)
 
-    tokens = await signUpPassword(convexUrl, email, password)
-    await establishHttpOnlySession(baseURL, jar, tokens)
+    tokens = await signUpPassword(baseURL, jar, username, password)
 
     try {
       const createRes = await fetchWithJar(baseURL, jar, '/api/tasks', {
@@ -86,7 +88,7 @@ describe.skipIf(!enabled)('playground full flow (live)', () => {
       expect(nitroTask).toBeDefined()
       expect(nitroTask!.completed).toBe(false)
 
-      const client = authedConvexClient(convexUrl, tokens.token)
+      const client = authedConvexClient(convexUrl, tokens.accessToken)
       await client.mutation(api.tasks.toggle, { taskId: nitroTask!._id })
       const afterToggle = (await client.query(api.tasks.list, {})) as Task[]
       expect(afterToggle.find((task) => task._id === nitroTask!._id)?.completed).toBe(true)
