@@ -49,6 +49,7 @@
     "@nuxt/schema": "^4.0.0",
     "@nuxt/test-utils": "^3.23.0",
     "@types/node": "^26.5.0",
+    "conventional-changelog-conventionalcommits": "^9.3.1",
     "convex": "^1.48.0",
     "convex-test": "^0.0.56",
     "happy-dom": "^20.14.0",

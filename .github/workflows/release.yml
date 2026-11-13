@@ -4,6 +4,10 @@ on:
   push:
     branches:
       - main
+    # Only commits that touch the module source publish. Every such commit
+    # releases at least a patch (see release.config.js).
+    paths:
+      - 'src/**'
   workflow_dispatch:
 
 concurrency:

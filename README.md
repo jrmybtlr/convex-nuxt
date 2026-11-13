@@ -459,11 +459,13 @@ On `/server`: `GET /api/health` is public; `GET`/`POST /api/tasks` and `POST /ap
 
 Releases run from `.github/workflows/release.yml` when commits that touch `src/` land on `main` (or when the workflow is run manually). Version bumps follow [conventional commits](https://www.conventionalcommits.org/):
 
-| Commit                         | Release |
-| ------------------------------ | ------- |
-| `feat!:` or `BREAKING CHANGE:` | major   |
-| `feat:`                        | minor   |
-| anything else under `src/`     | patch   |
+| Commit                                             | Release |
+| -------------------------------------------------- | ------- |
+| Any `type!:` header or a `BREAKING CHANGE:` footer | major   |
+| `feat:`                                            | minor   |
+| anything else                                      | patch   |
+
+The workflow only runs for pushes that touch `src/`, so docs, test and playground-only commits do not publish. When it runs, every commit since the last release counts, and the highest bump wins. `test/release-config.test.ts` checks these rules against the real config.
 
 semantic-release publishes `use-convex` to npm, tags `vX.Y.Z`, and opens a GitHub Release. The repo `package.json` version is not committed back.
 
