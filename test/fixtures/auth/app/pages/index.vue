@@ -10,15 +10,13 @@ const app = useNuxtApp()
 const convex = app.$convex as { url?: string; client: unknown | null } | undefined
 
 // These are only auto-imported when provider === 'convex-auth'.
-const hasUseAuth = typeof useAuth === 'function'
-const hasSignIn = typeof signIn === 'function'
-const hasSignOut = typeof signOut === 'function'
-
 const dump = JSON.stringify({
   convex: config.public.convex,
   hasConvex: !!convex,
-  hasUseAuth,
-  hasSignIn,
-  hasSignOut,
+  hasUseAuth: typeof useAuth === 'function',
+  hasUseConvexSignIn: typeof useConvexSignIn === 'function',
+  hasUseOAuthSignIn: typeof useOAuthSignIn === 'function',
+  hasUseOAuth: typeof useOAuth === 'function',
+  hasSignOut: typeof signOut === 'function',
 })
 </script>

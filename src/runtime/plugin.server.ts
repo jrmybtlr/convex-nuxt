@@ -1,5 +1,6 @@
-import { defineNuxtPlugin, useRuntimeConfig } from 'nuxt/app'
-import { useSsrTokenRef } from './utils/authCookie'
+import { defineNuxtPlugin, useRequestEvent, useRuntimeConfig } from 'nuxt/app'
+import { useConvexAuthTokenState, useSsrTokenRef } from './utils/authCookie'
+import { isSsrConvexAuth, type ConvexAuthConfig } from './utils/authStorage'
 import { createHttpClient } from './utils/http'
 import { convexNuxtKey, createAuthContext, type ConvexNuxtContext } from './utils/context'
 import { warnMissingConvexUrl } from './utils/errors'
@@ -9,7 +10,7 @@ export default defineNuxtPlugin({
   setup(nuxtApp) {
     const config = useRuntimeConfig()
     const convexConfig = config.public.convex as
-      | { url?: string; auth?: { provider?: string; cookie?: string } }
+      | { url?: string; auth?: ConvexAuthConfig }
       | undefined
     const url = convexConfig?.url
 
@@ -18,6 +19,16 @@ export default defineNuxtPlugin({
         warnMissingConvexUrl('server')
       }
       return
+    }
+
+    if (isSsrConvexAuth(convexConfig?.auth)) {
+      // The Nitro session middleware refreshed the access token (or found
+      // no session) before rendering. Hand it to the client payload so the
+      // AuthClient adopts it as `initialAccessToken`.
+      const event = useRequestEvent()
+      const token = (event?.context as { convexAuthToken?: string | null } | undefined)
+        ?.convexAuthToken
+      useConvexAuthTokenState().value = token ?? null
     }
 
     const ssrToken = useSsrTokenRef()

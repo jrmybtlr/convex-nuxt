@@ -44,13 +44,12 @@
     "h3": "^1.15.0"
   },
   "devDependencies": {
-    "@auth/core": "0.41.1",
-    "@convex-dev/auth": "^0.0.95",
+    "@convex-dev/auth": "^2.0.0",
     "@nuxt/module-builder": "^1.0.0",
     "@nuxt/schema": "^4.0.0",
     "@nuxt/test-utils": "^3.23.0",
     "@types/node": "^26.5.0",
-    "convex": "^1.46.0",
+    "convex": "^1.48.0",
     "convex-test": "^0.0.56",
     "happy-dom": "^20.14.0",
     "nitropack": "^2.13.0",
@@ -63,9 +62,15 @@
     "vue-tsc": "^3.0.0"
   },
   "peerDependencies": {
-    "convex": "^1.46.0",
+    "@convex-dev/auth": "^2.0.0",
+    "convex": "^1.48.0",
     "nuxt": "^4.0.0",
     "vue": "^3.5.0"
+  },
+  "peerDependenciesMeta": {
+    "@convex-dev/auth": {
+      "optional": true
+    }
   },
   "packageManager": "pnpm@10.0.0",
   "pnpm": {

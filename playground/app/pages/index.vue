@@ -91,9 +91,11 @@ const key = await upload(file) // R2 object key`,
   {
     name: 'useAuth',
     kind: 'auth',
-    flags: 'convex-auth cookie httpOnly',
-    example: `const { signIn, signOut, showAuthedUi, pending, error } = useAuth()
-await signIn('password', { email, password, flow: 'signIn' })
+    flags: 'convex-auth v2 ssr spa',
+    example: `const { run: signIn, pending } = useConvexSignIn(api.auth.signInWithUsernamePassword)
+const result = await signIn({ username, password })
+if (result.status === 'error') show(result.userError)
+const { signOut, showAuthedUi } = useAuth()
 // Gate UI with showAuthedUi; gate queries with { authenticated: true }`,
   },
   {

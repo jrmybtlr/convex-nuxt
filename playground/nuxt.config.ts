@@ -12,8 +12,10 @@ export default defineNuxtConfig({
     url: process.env.NUXT_PUBLIC_CONVEX_URL ?? process.env.CONVEX_URL,
     auth: {
       provider: 'convex-auth',
-      httpOnly: true,
-      cookie: 'convex_jwt',
+      // SSR mode (default): refresh token in an httpOnly cookie, sign-ins
+      // through the Nitro auth proxy. Every session-issuing function must be
+      // listed here.
+      signIn: ['auth:signInWithUsernamePassword', 'auth:signUpWithUsernamePassword'],
     },
   },
 })

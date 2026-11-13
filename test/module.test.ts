@@ -1,4 +1,4 @@
-import { describe, expect, it, vi, beforeEach } from 'vite-plus/test'
+import { afterEach, describe, expect, it, vi, beforeEach } from 'vite-plus/test'
 import { makeFunctionReference } from 'convex/server'
 import { convexQueryKey } from '../src/runtime/utils/queryKey'
 import { resolveQueryOverlay } from '../src/runtime/utils/overlay'
@@ -7,12 +7,13 @@ import { resolveConvexAuthState } from '../src/runtime/utils/authState'
 import { resolveFetchToken } from '../src/runtime/utils/fetchToken'
 import {
   cookieValueToSsrToken,
-  flattenSignInParams,
+  isJwtExpiring,
+  resolveAuthApiNames,
   resolveAuthCookieName,
-  shouldConsumeOAuthCode,
-  storageKey,
+  resolveAuthMode,
+  resolveAuthRoutes,
+  sessionKeyFromToken,
 } from '../src/runtime/utils/authStorage'
-import { resetAuthMutexesForTests, withRefreshMutex } from '../src/runtime/utils/authMutex'
 
 const listTasks = makeFunctionReference<'query', Record<string, never>, Array<{ text: string }>>(
   'tasks:list',
@@ -351,52 +352,46 @@ describe('convex.server default', () => {
   })
 })
 
+function jwtWithExp(exp: number | undefined): string {
+  const encode = (value: unknown) => Buffer.from(JSON.stringify(value)).toString('base64url')
+  return `${encode({ alg: 'none' })}.${encode(exp === undefined ? {} : { exp })}.sig`
+}
+
 describe('authStorage helpers', () => {
-  it('namespaces storage keys by deployment URL', () => {
-    expect(storageKey('__convexAuthJWT', 'https://happy-animal-123.convex.cloud')).toBe(
-      '__convexAuthJWT_httpshappyanimal123convexcloud',
+  it('uses the Convex Auth cookie only in SSR mode, else the BYO cookie', () => {
+    expect(resolveAuthCookieName({ provider: 'convex-auth' })).toBe('__convexAuthJWT')
+    expect(resolveAuthCookieName({ provider: 'convex-auth', mode: 'ssr' })).toBe('__convexAuthJWT')
+    expect(resolveAuthCookieName({ provider: 'convex-auth', mode: 'spa' })).toBeUndefined()
+    // A BYO cookie name is ignored for Convex Auth, which owns its cookies.
+    expect(resolveAuthCookieName({ provider: 'convex-auth', cookie: 'custom' })).toBe(
+      '__convexAuthJWT',
     )
-  })
-
-  it('no-ops readLocal/writeLocal when window is undefined (SSR)', async () => {
-    const { readLocal, writeLocal } = await import('../src/runtime/utils/authStorage')
-    // Node vitest environment has no DOM window for this assertion path —
-    // auth-storage.test.ts covers the happy-dom branch.
-    expect(typeof window).toBe('undefined')
-    expect(readLocal('k')).toBeNull()
-    expect(() => writeLocal('k', 'v')).not.toThrow()
-  })
-
-  it('flattens FormData like the React Convex Auth client', () => {
-    const form = new FormData()
-    form.set('email', 'a@b.co')
-    form.set('password', 'secret')
-    form.set('flow', 'signIn')
-    expect(flattenSignInParams(form)).toEqual({
-      email: 'a@b.co',
-      password: 'secret',
-      flow: 'signIn',
-    })
-  })
-
-  it('passes through plain records', () => {
-    expect(flattenSignInParams({ email: 'a@b.co' })).toEqual({ email: 'a@b.co' })
-    expect(flattenSignInParams()).toEqual({})
-  })
-
-  it('defaults cookie to convex_jwt when provider is convex-auth', () => {
-    expect(resolveAuthCookieName({ provider: 'convex-auth' })).toBe('convex_jwt')
-    expect(resolveAuthCookieName({ provider: 'convex-auth', cookie: 'custom' })).toBe('custom')
     expect(resolveAuthCookieName({ cookie: 'only-cookie' })).toBe('only-cookie')
     expect(resolveAuthCookieName(undefined)).toBeUndefined()
     expect(resolveAuthCookieName({})).toBeUndefined()
   })
 
-  it('uses HttpOnly JWT cookie name when httpOnly is enabled', () => {
-    expect(resolveAuthCookieName({ provider: 'convex-auth', httpOnly: true })).toBe(
-      '__convexAuthJWT',
-    )
-    expect(resolveAuthCookieName({ httpOnly: true, cookie: 'custom' })).toBe('custom')
+  it('defaults Convex Auth to SSR mode', () => {
+    expect(resolveAuthMode({ provider: 'convex-auth' })).toBe('ssr')
+    expect(resolveAuthMode({ provider: 'convex-auth', mode: 'spa' })).toBe('spa')
+  })
+
+  it('resolves session function names with overrides', () => {
+    expect(resolveAuthApiNames(undefined)).toEqual({
+      refreshSession: 'auth:refreshSession',
+      signOut: 'auth:signOut',
+      isAuthenticated: 'auth:isAuthenticated',
+    })
+    expect(resolveAuthApiNames({ api: { signOut: 'session:end' } }).signOut).toBe('session:end')
+  })
+
+  it('builds auth routes from the prefix', () => {
+    expect(resolveAuthRoutes(undefined)).toEqual({
+      signIn: '/api/convex/auth/signin',
+      refresh: '/api/convex/auth/refresh',
+      signOut: '/api/convex/auth/signout',
+    })
+    expect(resolveAuthRoutes({ routePrefix: '/auth/' }).refresh).toBe('/auth/refresh')
   })
 
   it('maps cookie values to an SSR token', () => {
@@ -406,102 +401,151 @@ describe('authStorage helpers', () => {
     expect(cookieValueToSsrToken(undefined)).toBeUndefined()
   })
 
-  it('only consumes ?code= when a verifier is stored', () => {
-    expect(shouldConsumeOAuthCode({ code: 'abc', verifier: 'v' })).toBe(true)
-    expect(shouldConsumeOAuthCode({ code: 'abc', verifier: null })).toBe(false)
-    expect(shouldConsumeOAuthCode({ code: null, verifier: 'v' })).toBe(false)
-  })
-
-  it('honors shouldHandleCode boolean and function gates', () => {
-    expect(shouldConsumeOAuthCode({ code: 'abc', verifier: 'v', shouldHandleCode: false })).toBe(
-      false,
-    )
-    expect(shouldConsumeOAuthCode({ code: 'abc', verifier: 'v', shouldHandleCode: true })).toBe(
-      true,
-    )
-    expect(
-      shouldConsumeOAuthCode({
-        code: 'abc',
-        verifier: 'v',
-        shouldHandleCode: () => false,
-      }),
-    ).toBe(false)
+  it('detects expiring and unreadable JWTs', () => {
+    const now = Date.now()
+    const nowSeconds = Math.floor(now / 1000)
+    expect(isJwtExpiring(jwtWithExp(nowSeconds + 60), 10, now)).toBe(false)
+    expect(isJwtExpiring(jwtWithExp(nowSeconds + 5), 10, now)).toBe(true)
+    expect(isJwtExpiring(jwtWithExp(nowSeconds + 5), 0, now)).toBe(false)
+    expect(isJwtExpiring(jwtWithExp(nowSeconds - 1), 0, now)).toBe(true)
+    expect(isJwtExpiring(jwtWithExp(undefined))).toBe(true)
+    expect(isJwtExpiring('not-a-jwt')).toBe(true)
   })
 })
 
-describe('configureConvexAuth / token storage', () => {
+describe('sessionKeyFromToken', () => {
+  const encode = (value: unknown) => Buffer.from(JSON.stringify(value)).toString('base64url')
+  const jwt = (claims: Record<string, unknown>) =>
+    `${encode({ alg: 'none' })}.${encode(claims)}.sig`
+
+  it('is stable across token rotation within one session', () => {
+    const a = jwt({ iss: 'https://x/components/auth', sub: 'session-1', iat: 1, exp: 61 })
+    const b = jwt({ iss: 'https://x/components/auth', sub: 'session-1', iat: 50, exp: 110 })
+    expect(a).not.toBe(b)
+    expect(sessionKeyFromToken(a)).toBe(sessionKeyFromToken(b))
+  })
+
+  it('changes on account switch', () => {
+    const a = jwt({ iss: 'https://x', sub: 'user-a' })
+    const b = jwt({ iss: 'https://x', sub: 'user-b' })
+    expect(sessionKeyFromToken(a)).not.toBe(sessionKeyFromToken(b))
+  })
+
+  it('falls back to the raw token without readable claims, and is empty without a token', () => {
+    expect(sessionKeyFromToken('opaque-token')).toBe('opaque-token')
+    expect(sessionKeyFromToken(jwt({ iss: 'https://x' }))).toBe(jwt({ iss: 'https://x' }))
+    expect(sessionKeyFromToken(undefined)).toBe('')
+    expect(sessionKeyFromToken('')).toBe('')
+  })
+})
+
+describe('postAuth (SSR session routes)', () => {
+  const realFetch = globalThis.fetch
+  afterEach(() => {
+    globalThis.fetch = realFetch
+  })
+
+  function respond(status: number, body: string, contentType = 'application/json') {
+    globalThis.fetch = vi.fn(
+      async () => new Response(body, { status, headers: { 'content-type': contentType } }),
+    ) as never
+  }
+
+  it('returns tokens from a 200 and the documented 401 no-session body', async () => {
+    const { postAuth } = await import('../src/runtime/auth/sessionRoutes')
+    respond(200, JSON.stringify({ tokens: { accessToken: 'jwt', userId: 'users:1' } }))
+    await expect(postAuth('/r')).resolves.toEqual({
+      tokens: { accessToken: 'jwt', userId: 'users:1' },
+    })
+    respond(401, JSON.stringify({ tokens: null }))
+    await expect(postAuth('/r')).resolves.toEqual({ tokens: null })
+  })
+
+  it('throws on outages, refusals and malformed bodies instead of reporting signed out', async () => {
+    const { postAuth } = await import('../src/runtime/auth/sessionRoutes')
+    respond(502, '<html>Bad gateway</html>', 'text/html')
+    await expect(postAuth('/r')).rejects.toThrow(/502/)
+    respond(403, JSON.stringify({ tokens: null }))
+    await expect(postAuth('/r')).rejects.toThrow(/403/)
+    respond(200, JSON.stringify({ ok: true }))
+    await expect(postAuth('/r')).rejects.toThrow(/200/)
+    respond(401, JSON.stringify({ tokens: { accessToken: 'x', userId: 'y' } }))
+    await expect(postAuth('/r')).rejects.toThrow(/401/)
+  })
+})
+
+describe('retryingTokenFetcher', () => {
+  it('retries a failing refresh with backoff until it answers', async () => {
+    const { retryingTokenFetcher } = await import('../src/runtime/auth/sessionRoutes')
+    const fetchToken = vi
+      .fn()
+      .mockRejectedValueOnce(new Error('502'))
+      .mockRejectedValueOnce(new Error('502'))
+      .mockResolvedValueOnce('fresh')
+    const delays: number[] = []
+    const fetcher = retryingTokenFetcher(fetchToken, {
+      hasSession: () => true,
+      sleep: async (ms) => {
+        delays.push(ms)
+      },
+    })
+    await expect(fetcher({ forceRefreshToken: true })).resolves.toBe('fresh')
+    expect(fetchToken).toHaveBeenCalledTimes(3)
+    expect(delays).toEqual([1000, 2000])
+  })
+
+  it('caps the backoff and passes through a definitive no-session answer', async () => {
+    const { retryingTokenFetcher } = await import('../src/runtime/auth/sessionRoutes')
+    const fetchToken = vi.fn()
+    for (let i = 0; i < 7; i++) {
+      fetchToken.mockRejectedValueOnce(new Error('down'))
+    }
+    fetchToken.mockResolvedValueOnce(null)
+    const delays: number[] = []
+    const fetcher = retryingTokenFetcher(fetchToken, {
+      hasSession: () => true,
+      sleep: async (ms) => {
+        delays.push(ms)
+      },
+    })
+    await expect(fetcher({ forceRefreshToken: true })).resolves.toBeNull()
+    expect(Math.max(...delays)).toBe(30_000)
+  })
+
+  it('stops retrying once the session is gone locally', async () => {
+    const { retryingTokenFetcher } = await import('../src/runtime/auth/sessionRoutes')
+    let signedIn = true
+    const fetchToken = vi.fn().mockRejectedValue(new Error('down'))
+    const fetcher = retryingTokenFetcher(fetchToken, {
+      hasSession: () => signedIn,
+      sleep: async () => {
+        signedIn = false
+      },
+    })
+    await expect(fetcher({ forceRefreshToken: true })).resolves.toBeNull()
+    expect(fetchToken).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('configureConvexAuth', () => {
   beforeEach(async () => {
-    const { resetConvexAuthClientOptionsForTests, resetInMemoryTokenStorageForTests } =
+    const { resetConvexAuthClientOptionsForTests } =
       await import('../src/runtime/utils/authClientOptions')
     resetConvexAuthClientOptionsForTests()
-    resetInMemoryTokenStorageForTests()
   })
 
-  it('merges module defaults with configureConvexAuth overrides', async () => {
-    const { configureConvexAuth, setConvexAuthModuleDefaults, getConvexAuthClientOptions } =
+  it('merges calls shallowly, later keys winning', async () => {
+    const { configureConvexAuth, getConvexAuthClientOptions } =
       await import('../src/runtime/utils/authClientOptions')
 
-    setConvexAuthModuleDefaults({
-      storageNamespace: 'from-module',
-      shouldHandleCode: true,
-      storage: 'localStorage',
-    })
-    configureConvexAuth({
-      shouldHandleCode: () => false,
-      replaceURL: async () => {},
-    })
+    const storage = { getItem: () => null, setItem: () => {}, removeItem: () => {} }
+    const replaceUrl = vi.fn()
+    configureConvexAuth({ storage, ambientSignIns: [] })
+    configureConvexAuth({ replaceUrl })
 
     const opts = getConvexAuthClientOptions()
-    expect(opts.storageNamespace).toBe('from-module')
-    expect(opts.storage).toBe('localStorage')
-    expect(typeof opts.shouldHandleCode).toBe('function')
-    expect(typeof opts.replaceURL).toBe('function')
-  })
-
-  it('routes readLocal/writeLocal through inMemory storage', async () => {
-    const { configureConvexAuth } = await import('../src/runtime/utils/authClientOptions')
-    const { readLocal, writeLocal } = await import('../src/runtime/utils/authStorage')
-
-    configureConvexAuth({ storage: 'inMemory' })
-    writeLocal('k', 'v')
-    expect(readLocal('k')).toBe('v')
-    writeLocal('k', null)
-    expect(readLocal('k')).toBeNull()
-  })
-})
-
-describe('withRefreshMutex', () => {
-  beforeEach(() => {
-    resetAuthMutexesForTests()
-  })
-
-  it('runs a single refresh at a time (manual mutex fallback)', async () => {
-    const order: string[] = []
-    let releaseFirst!: () => void
-    const firstGate = new Promise<void>((resolve) => {
-      releaseFirst = resolve
-    })
-
-    const first = withRefreshMutex('test-refresh', async () => {
-      order.push('first-start')
-      await firstGate
-      order.push('first-end')
-      return 'a'
-    })
-
-    // Let the first callback start before enqueueing the second.
-    await Promise.resolve()
-    await Promise.resolve()
-
-    const second = withRefreshMutex('test-refresh', async () => {
-      order.push('second')
-      return 'b'
-    })
-
-    expect(order).toEqual(['first-start'])
-    releaseFirst()
-    await expect(first).resolves.toBe('a')
-    await expect(second).resolves.toBe('b')
-    expect(order).toEqual(['first-start', 'first-end', 'second'])
+    expect(opts.storage).toBe(storage)
+    expect(opts.ambientSignIns).toEqual([])
+    expect(opts.replaceUrl).toBe(replaceUrl)
   })
 })

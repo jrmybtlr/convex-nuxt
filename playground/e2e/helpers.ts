@@ -2,28 +2,15 @@ import { readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { ConvexHttpClient } from 'convex/browser'
-import { makeFunctionReference } from 'convex/server'
 
+/** The access-only bundle the SSR auth proxy returns (refresh token stays in a cookie). */
 export type AuthTokens = {
-  token: string
-  refreshToken: string
+  accessToken: string
+  userId: string
 }
 
-type SignInActionResult = {
-  tokens?: AuthTokens | null
-  redirect?: string
-  verifier?: string
-  started?: boolean
-}
-
-const authSignIn = makeFunctionReference<
-  'action',
-  {
-    provider?: string
-    params?: Record<string, string>
-  },
-  SignInActionResult
->('auth:signIn')
+/** Default Convex Auth route prefix (`convex.auth.routePrefix`). */
+const AUTH_ROUTES = '/api/convex/auth'
 
 const playgroundDir = join(dirname(fileURLToPath(import.meta.url)), '..')
 
@@ -123,58 +110,57 @@ export function resolveConvexURL(): string {
   return url
 }
 
+/**
+ * Sign up with username + password through the Nitro auth proxy, the same
+ * path the browser uses in SSR mode. The proxy sets the httpOnly
+ * `__convexAuthJWT` / `__convexAuthRefreshToken` cookies on `jar` and
+ * returns the access token.
+ */
 export async function signUpPassword(
-  convexUrl: string,
-  email: string,
-  password: string,
-): Promise<AuthTokens> {
-  const http = new ConvexHttpClient(convexUrl)
-  const result = await http.action(authSignIn, {
-    provider: 'password',
-    params: {
-      email,
-      password,
-      flow: 'signUp',
-    },
-  })
-  if (!result.tokens?.token || !result.tokens.refreshToken) {
-    throw new Error('signUp did not return auth tokens')
-  }
-  return result.tokens
-}
-
-export async function establishHttpOnlySession(
   baseURL: string,
   jar: CookieJar,
-  tokens: AuthTokens,
-): Promise<void> {
-  const res = await fetch(`${baseURL}/api/convex/auth/session`, {
+  username: string,
+  password: string,
+): Promise<AuthTokens> {
+  const res = await fetch(`${baseURL}${AUTH_ROUTES}/signin?path=/api/mutation`, {
     method: 'POST',
-    headers: {
-      'content-type': 'application/json',
-      'sec-fetch-site': 'same-origin',
-      origin: baseURL,
-    },
+    headers: { 'content-type': 'application/json', origin: baseURL },
     body: JSON.stringify({
-      token: tokens.token,
-      refreshToken: tokens.refreshToken,
+      path: 'auth:signUpWithUsernamePassword',
+      format: 'convex_encoded_json',
+      args: [{ username, password }],
     }),
   })
   jar.absorb(res)
   if (!res.ok) {
-    throw new Error(`session POST failed: ${res.status} ${await res.text()}`)
+    throw new Error(`sign-up proxy failed: ${res.status} ${await res.text()}`)
   }
+  const payload = (await res.json()) as {
+    status: string
+    value?: { status: string; tokens?: AuthTokens; userError?: unknown }
+    errorMessage?: string
+  }
+  if (payload.status !== 'success' || payload.value?.status !== 'complete') {
+    throw new Error(`sign-up failed: ${JSON.stringify(payload.value ?? payload.errorMessage)}`)
+  }
+  const tokens = payload.value.tokens
+  if (!tokens?.accessToken || 'refreshToken' in tokens) {
+    throw new Error('sign-up must return an access-only bundle (refresh token in a cookie)')
+  }
+  return tokens
 }
 
-export async function clearHttpOnlySession(baseURL: string, jar: CookieJar): Promise<void> {
+/** Revoke the session and clear the auth cookies through the sign-out route. */
+export async function signOutSession(baseURL: string, jar: CookieJar): Promise<void> {
   const cookie = jar.header()
-  const res = await fetch(`${baseURL}/api/convex/auth/session`, {
-    method: 'DELETE',
+  const res = await fetch(`${baseURL}${AUTH_ROUTES}/signout`, {
+    method: 'POST',
     headers: {
-      'sec-fetch-site': 'same-origin',
+      'content-type': 'application/json',
       origin: baseURL,
       ...(cookie ? { cookie } : {}),
     },
+    body: '{}',
   })
   jar.absorb(res)
   jar.clear()

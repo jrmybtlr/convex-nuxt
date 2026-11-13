@@ -1,11 +1,10 @@
-import { computed, type ComputedRef } from 'vue'
-import { useCookie, useRuntimeConfig } from 'nuxt/app'
+import { computed, type ComputedRef, type Ref } from 'vue'
+import { useCookie, useRuntimeConfig, useState } from 'nuxt/app'
 import {
-  AUTH_JWT_COOKIE_MAX_AGE,
+  SSR_TOKEN_STATE_KEY,
   cookieValueToSsrToken,
-  isHttpOnlyAuth,
+  isConvexAuth,
   resolveAuthCookieName,
-  resolveAuthPresentCookieName,
   type ConvexAuthConfig,
 } from './authStorage'
 
@@ -13,58 +12,49 @@ type ConvexPublicAuth = {
   auth?: ConvexAuthConfig
 }
 
-function cookieOptions(httpOnly: boolean) {
-  return {
-    sameSite: 'lax' as const,
-    secure: process.env.NODE_ENV === 'production',
-    maxAge: AUTH_JWT_COOKIE_MAX_AGE,
-    path: '/',
-    httpOnly,
-  }
+function readAuthConfig(): ConvexAuthConfig | undefined {
+  const config = useRuntimeConfig()
+  return (config.public.convex as ConvexPublicAuth | undefined)?.auth
 }
 
 /**
- * Shared JWT cookie for SSR snapshots. Same name + options as persistTokens
- * so plugin reads and sign-in/out writes share one Nuxt cookie ref.
- *
- * When `auth.httpOnly` is set, this cookie is HttpOnly (server-readable only).
+ * Convex Auth access token shared between server and client via the Nuxt
+ * payload. The server fills it from the (refreshed) SSR session; the client
+ * auth plugin keeps it in sync with the live `AuthClient` token.
  */
+export function useConvexAuthTokenState(): Ref<string | null> {
+  return useState<string | null>(SSR_TOKEN_STATE_KEY, () => null)
+}
+
+/** BYO providers: readable JWT cookie written by the app after sign-in. */
 export function useAuthJwtCookie() {
-  const config = useRuntimeConfig()
-  const convexConfig = config.public.convex as ConvexPublicAuth | undefined
-  const name = resolveAuthCookieName(convexConfig?.auth)
+  const auth = readAuthConfig()
+  if (isConvexAuth(auth)) {
+    return undefined
+  }
+  const name = resolveAuthCookieName(auth)
   if (!name) {
     return undefined
   }
-  const httpOnly = isHttpOnlyAuth(convexConfig?.auth)
-  return useCookie<string | null>(name, cookieOptions(httpOnly))
+  return useCookie<string | null>(name, {
+    sameSite: 'lax',
+    secure: process.env.NODE_ENV === 'production',
+    path: '/',
+  })
 }
 
-/**
- * Readable presence marker used when JWT is HttpOnly so the client can still
- * compute `hasSsrSession` / `showAuthedUi` without reading the token.
- */
-export function useAuthPresentCookie() {
-  const config = useRuntimeConfig()
-  const convexConfig = config.public.convex as ConvexPublicAuth | undefined
-  const name = resolveAuthPresentCookieName(convexConfig?.auth)
-  if (!name) {
-    return undefined
-  }
-  return useCookie<string | null>(name, cookieOptions(false))
-}
-
-/** Reactive JWT for HttpClient + SSR. Empty on the client when HttpOnly. */
+/** Reactive JWT for HttpClient + SSR. */
 export function useSsrTokenRef(): ComputedRef<string | undefined> {
+  if (isConvexAuth(readAuthConfig())) {
+    const state = useConvexAuthTokenState()
+    return computed(() => state.value || undefined)
+  }
   const cookie = useAuthJwtCookie()
   return computed(() => cookieValueToSsrToken(cookie?.value))
 }
 
-/**
- * Session hint for UI gating: JWT readable, or HttpOnly presence cookie.
- */
+/** Session hint for UI gating: a JWT is known for this request / client. */
 export function useHasSsrSessionRef(): ComputedRef<boolean> {
   const token = useSsrTokenRef()
-  const present = useAuthPresentCookie()
-  return computed(() => !!token.value || present?.value === '1')
+  return computed(() => !!token.value)
 }

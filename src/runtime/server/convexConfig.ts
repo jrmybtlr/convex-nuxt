@@ -1,14 +1,10 @@
 import type { H3Event } from 'h3'
 import { useRuntimeConfig } from 'nitropack/runtime'
+import type { ConvexAuthConfig } from '../utils/authStorage'
 
 export interface ConvexPublicConfig {
   url?: string
-  auth?: {
-    provider?: string
-    cookie?: string
-    httpOnly?: boolean
-    presentCookie?: string
-  }
+  auth?: ConvexAuthConfig
 }
 
 /** Read `runtimeConfig.public.convex`, or `undefined` outside a Nitro request. */

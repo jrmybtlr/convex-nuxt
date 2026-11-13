@@ -1,8 +1,7 @@
 import type { FunctionArgs, FunctionReturnType } from 'convex/server'
 import type { H3Event } from 'h3'
-import { getCookie } from 'h3'
 import { createHttpClient } from '../utils/http'
-import { resolveAuthCookieName } from '../utils/authStorage'
+import { getConvexToken } from './auth'
 import type { ConvexRef } from '../utils/functionReference'
 import { resolveFetchToken } from '../utils/fetchToken'
 import { missingConvexUrlError } from '../utils/errors'
@@ -15,7 +14,8 @@ export interface ConvexFetchOptions {
   url?: string
   /**
    * JWT for this call. Prefer per-request tokens — never put JWTs in public config.
-   * When omitted and `event` is passed, falls back to `convex.auth.cookie` if set.
+   * When omitted and `event` is passed, falls back to the request's session
+   * (Convex Auth SSR mode) or `convex.auth.cookie` (BYO).
    * Ignored when {@link adminToken} is set (admin auth clears user JWT).
    */
   token?: string
@@ -57,15 +57,10 @@ export function resolveToken(options: ConvexFetchOptions): string | undefined {
     return resolveFetchToken({ token: options.token })
   }
 
-  const cookieName = resolveAuthCookieName(readConvexConfig(options.event)?.auth)
-  if (!cookieName || !options.event) {
+  if (!options.event) {
     return undefined
   }
-
-  return resolveFetchToken({
-    cookieName,
-    cookieValue: getCookie(options.event, cookieName),
-  })
+  return getConvexToken(options.event)
 }
 
 function setupClient(options: ConvexFetchOptions = {}) {

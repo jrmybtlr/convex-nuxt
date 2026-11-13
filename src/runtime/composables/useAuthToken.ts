@@ -7,8 +7,8 @@ import { tryUseConvexContext } from '../utils/context'
  * Current JWT for authenticated HTTP calls (React `@convex-dev/auth`
  * `useAuthToken` parity).
  *
- * Prefers `ConvexClient.getAuth()`, then the configured `fetchToken`
- * (Convex Auth / BYO). Returns `null` when signed out or unavailable.
+ * Uses the Convex Auth client token when Convex Auth is enabled; otherwise
+ * `ConvexClient.getAuth()`, then the configured BYO `fetchToken`. Returns `null` when signed out or unavailable.
  */
 export function useAuthToken(): ComputedRef<string | null> {
   const token = ref<string | null>(null) as Ref<string | null>
@@ -18,6 +18,12 @@ export function useAuthToken(): ComputedRef<string | null> {
   }
 
   const auth = useConvexAuth()
+
+  // Convex Auth v2: the AuthClient snapshot already tracks the token.
+  const binding = ctx.convexAuth
+  if (binding) {
+    return computed(() => binding.state.value.token)
+  }
 
   const refresh = async () => {
     if (!ctx.client) {
